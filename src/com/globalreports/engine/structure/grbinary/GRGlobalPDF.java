@@ -1,6 +1,6 @@
 /*
  * ==========================================================================
- * class name  : com.globalreports.engine.objects.text.GRParagraph
+ * class name  : com.globalreports.engine.structure.grbinary.GRGlobalPDF
  * 
  * Begin       : 
  * Last Update : 
@@ -47,99 +47,32 @@
  * which carries forward this exception.
  * 
  */
-package com.globalreports.engine.objects.variable.text;
+package com.globalreports.engine.structure.grbinary;
 
-public class GRTextRowParagraph {
-	private String value;
-	private String fontId;
-	private double fontSize;
-	private int fontAscent;
-	private double colorRED;
-	private double colorGREEN;
-	private double colorBLUE;
-	private int blank;
-	private double widthBlank;
-	private double width;
-	private boolean underline;
+public class GRGlobalPDF {
+	private int totalePagine;	// Numero totale di pagine contenute nel PDF generato
+	private int paginaCorrente;	// Numero di pagina corrente che lo stream sta modificando
 	
-	private double gapAdjustment;	// E' la quantità di spazio aggiuntivo
-									// che viene inserito in fase di rendering
-									// della stringa per ottenere l'allineamento
-									// specificato
-	
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE, String valueUnderline) {
-		this.fontId = fontId;
-		this.fontSize = fontSize;
-		this.fontAscent = fontAscent;
-		this.colorRED = cRED;
-		this.colorGREEN = cGREEN;
-		this.colorBLUE = cBLUE;
-		
-		blank = 0;
-		width = 0.0;
-		
-		if(valueUnderline.equals("underline"))
-			underline = true;
-		else
-			underline = false;
+	public GRGlobalPDF() {
+		this.clear();
 	}
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE) {
-		this(fontId, fontSize, fontAscent, cRED, cGREEN, cBLUE, "none");
+	public void clear() {
+		totalePagine = 0;
+		paginaCorrente = 0;
 	}
-	public void setValue(String value) {
-		this.value = value;
+	public void setPagineTotale(int value) {
+		totalePagine = value;
 	}
-	public String getValue() {
-		return value;
+	public int getPagineTotale() {
+		return totalePagine;
 	}
-	public void setWidth(double width) {
-		this.width = width;
+	public void setPaginaCorrente(int value) {
+		paginaCorrente = value;
 	}
-	public double getWidth() {
-		return width;
+	public void increasesCurrentPage() {
+		paginaCorrente++;
 	}
-	public void setWidthBlank(double value) {
-		this.widthBlank = value;
-	}
-	public double getWidthBlank() {
-		return widthBlank;
-	}
-	public void addBlank() {
-		blank++;
-	}
-	public int getBlank() {
-		return blank;
-	}
-	
-	public String getFontId() {
-		return fontId;
-	}
-	public double getFontSize() {
-		return fontSize;
-	}
-	public int getFontAscent() {
-		return fontAscent;
-	}
-	public double getRED() {
-		return colorRED;
-	}
-	public double getGREEN() {
-		return colorGREEN;
-	}
-	public double getBLUE() {
-		return colorBLUE;
-	}
-	public boolean getUnderline() {
-		return underline;
-	}
-	public void setGapAdjustment(double value) {
-		gapAdjustment = value;
-	}
-	public void addGapAdjustment(double value) {
-		gapAdjustment += value;
-	}
-	public double getGapAdjustment() {
-		return gapAdjustment;
+	public int getPaginaCorrente() {
+		return paginaCorrente;
 	}
 }
-

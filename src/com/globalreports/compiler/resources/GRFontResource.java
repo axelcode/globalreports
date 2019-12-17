@@ -126,6 +126,8 @@ public class GRFontResource {
 		if(!fileExists) {
 			// TO DO: Va gestita la mancata corrispondenza del file
 			System.out.println("ERRORE: Font non trovato!");
+			System.out.println("FONT CERCATO: "+fileName);
+			System.out.println("PATH: "+pathFont+fileName);
 			
 			return false;
 		}

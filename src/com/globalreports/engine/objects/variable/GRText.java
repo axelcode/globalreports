@@ -58,6 +58,7 @@ import com.globalreports.engine.objects.GRObject;
 import com.globalreports.engine.objects.variable.text.GRParagraph;
 import com.globalreports.engine.objects.variable.text.GRRowParagraph;
 import com.globalreports.engine.objects.variable.text.GRTextRowParagraph;
+import com.globalreports.engine.objects.variable.text.GRTokenText;
 import com.globalreports.engine.structure.GRMeasures;
 import com.globalreports.engine.structure.grbinary.GRDocument;
 import com.globalreports.engine.structure.grbinary.GRFont;
@@ -65,7 +66,9 @@ import com.globalreports.engine.structure.grbinary.data.GRData;
 import com.globalreports.engine.structure.grpdf.GRContext;
 
 public class GRText extends GRVariableObject {
-	protected final String REG_TEXT = "\\[([a-zA-Z0-9]+):([0-9]+):([0-9.]+),([0-9.]+),([0-9.]+)\\]([a-zA-Z0-9 ,!$%&;:\\\\\"\'\\?\\^\\.\\{\\}\\-\\/\\(\\)]+)";
+	protected final String REG_TEXT = "\\[([a-zA-Z0-9]+):([0-9]+):([0-9.]+),([0-9.]+),([0-9.]+):(underline|none){1}\\]([a-zA-Z0-9 ,!$%&;:\\\\\"\'\\?\\^\\.\\{\\}\\-\\/\\(\\)]+)";
+	
+	//protected final String REG_TEXT = "\\[([a-zA-Z0-9]+):([0-9]+):([0-9.]+),([0-9.]+),([0-9.]+)\\]([a-zA-Z0-9 ,!$%&;:\\\\\"\'\\?\\^\\.\\{\\}\\-\\/\\(\\)]+)";
 	protected final String REG_ALIGN = "[ ]{0,}[a-zA-Z0-9,!$%&;:\\\\\"\'\\?\\^\\.\\{\\}\\-\\/\\(\\)]+([ ]+|)";
 	protected final String REG_VARIABLE = "[{]([a-zA-Z0-9_]+)(:{0,1})([a-zA-Z0-9, =!$%&;\\\\\"\'\\?\\^\\.\\-\\/\\(\\)]{0,})[}]";
 	
@@ -82,6 +85,12 @@ public class GRText extends GRVariableObject {
 	private double dim;	// E' la dimensione verticale del testo.
 						// Tale valore viene valorizzato al momento del rendering
 	
+	
+	private double leftRowUnderline;
+	private double topRowUnderline;
+	private String styleUnderline;	// E' una stringa che contiene le istruzioni
+									// relative al disegno delle sottolineature 
+									// presenti nell'oggetto di testo
 	
 	public static final short ALIGN_LEFT		= 1;
 	public static final short ALIGN_CENTER		= 2;
@@ -107,6 +116,8 @@ public class GRText extends GRVariableObject {
 		
 		if(width <= 0.0)
 			this.width = 80.0;
+		
+		this.styleUnderline = "";
 	}
 	public GRText(double left, double top, double width, double height, short align, short hpos, double lineSpacing, String value) {
 		this(GRObject.TYPEOBJ_TEXT, left, top, width, height, align, hpos, lineSpacing, value);
@@ -180,12 +191,30 @@ public class GRText extends GRVariableObject {
 			value = grdata.addVariables(this.value);
 		
 		content.append("BT\n");
+		//content.append("1 0 0 1 128.0 -120 Tm\n");
+		//content.append("0.5 0 0 0.5 0 0 Tm\n");
 		
 		content.append(getStreamTEXT(grcontext,value));
 		
 		content.append("ET\n");
 
+		//styleUnderline = "q\n0.25 w\n42.51 607.699 m\n552.73998 607.699 l\nS\nQ\n";
+		// Aggancia le sottolineature
+		content.append(styleUnderline);
 		
+		/*
+		 * Se il testo presenta parti sottolineate, quella va inserita in questo punto
+		 */
+		/*
+		String ritorno = "";
+		ritorno = ritorno + "q\n";
+		ritorno = ritorno + "0.25 w\n";
+		ritorno = ritorno + "42.51 744.15 m\n";
+		ritorno = ritorno + "142.82 744.15 l\n";
+		ritorno = ritorno + "S\n";
+		ritorno = ritorno + "Q\n";
+		content.append(ritorno);
+		*/
 		/*
 		// Inserisce la marcatura
 		double PI = 3.14159;
@@ -197,7 +226,7 @@ public class GRText extends GRVariableObject {
 		cTeta = 0;
 		System.out.println("C: "+cTeta);
 		content.append("BT\n");
-		content.append("/GRF1 7 Tf\n");
+		content.append("/GRFSYS1 7 Tf\n");
 		content.append(cTeta+" "+sTeta+" "+(sTeta * -1)+" "+cTeta+" 28.34 140 Tm\n");
 		content.append("-328.34 550 Td\n");
 		content.append("(Stampato con tecnologia GlobalReports - www.globalreports.it) Tj\n");
@@ -206,7 +235,7 @@ public class GRText extends GRVariableObject {
 		sTeta =  Math.sin((C * 45));
 		cTeta = Math.cos(C * 45);
 		content.append("BT\n");
-		content.append("/GRF1 46 Tf\n");
+		content.append("/GRFSYS1 46 Tf\n");
 		content.append(cTeta+" "+sTeta+" "+(sTeta * -1)+" "+cTeta+" 28.34 140 Tm\n");
 		content.append("300 150 Td\n");
 		content.append("1 Tr\n");
@@ -215,7 +244,16 @@ public class GRText extends GRVariableObject {
 		content.append("(VADA VIA AL CUL) Tj\n");
 		content.append("ET\n");
 		*/
-
+		/*
+		content.append("<< /Type /Annot\n");
+		content.append("/Subtype /Link\n");
+		content.append("Rect [71 717 190 734] \n");
+		content.append("/Border [16 16 1]\n");
+		content.append("/Dest [3 0 R /FitR -4 399 199 533]\n");
+		content.append(">>\n");
+		*/
+		
+		//System.out.println(content.toString());
 		stream.add(content.toString());
 		return stream;
 		//return content.toString();
@@ -225,6 +263,10 @@ public class GRText extends GRVariableObject {
 		StringBuffer content = new StringBuffer();
 		GRParagraph grpar;
 	
+		// Azzera le informazioni da utilizzare per le sottolineature
+		leftRowUnderline = 0.0;
+		topRowUnderline = 0.0;
+		
 		dim = 0.0;
 		double heightFirstRow = 0.0;
 		
@@ -243,13 +285,27 @@ public class GRText extends GRVariableObject {
 		grpar.setLineSpacing(getLineSpacing());
 		grpar.setWidth(this.getWidth() * 1000);
 		
-		Pattern pattern = Pattern.compile(REG_TEXT);
-		Matcher matcher = pattern.matcher(value);
-		
+		//System.out.println("Trovo il valore: "+value);
+		Vector<GRTokenText> patternText = getTextRegex(value);
 		grpar.newRow();
-		while(matcher.find()) {
-			formatText(grpar,matcher.group(6), matcher.group(1), Double.parseDouble(matcher.group(2)), Double.parseDouble(matcher.group(3)), Double.parseDouble(matcher.group(4)), Double.parseDouble(matcher.group(5)), this.getAlign());
+		
+		for(int i = 0;i < patternText.size();i++) {
+			GRTokenText tt = patternText.get(i);
+			formatText(grpar,tt.getValue(), tt.getFontId(), tt.getFontSize(), tt.getColorRED(), tt.getColorGREEN(), tt.getColorBLUE(), this.getAlign(), tt.getFontUnderline());
 		}
+		
+		leftRowUnderline = grpar.getLeft();
+		
+		//Pattern pattern = Pattern.compile(REG_TEXT);
+		//Matcher matcher = pattern.matcher(value);
+		
+		//grpar.newRow();
+		/*
+		while(matcher.find()) {
+			System.out.println("MATCHER: "+matcher.group(6));
+			formatText(grpar,matcher.group(7), matcher.group(1), Double.parseDouble(matcher.group(2)), Double.parseDouble(matcher.group(3)), Double.parseDouble(matcher.group(4)), Double.parseDouble(matcher.group(5)), this.getAlign(), matcher.group(6));
+		}
+		*/
 		
 		// TEST DEBUG
 		for(int i = 0;i < grpar.getTotaleRow();i++) {
@@ -258,11 +314,14 @@ public class GRText extends GRVariableObject {
 		if(grpar.getTotaleRow() > 0) {
 			grpar.setTop(top - grpar.getLineParagraph(0).getMaxHeight());
 			
+			topRowUnderline = grpar.getTop() - 3;	// Il -3 è il gap tra il testo e la sottolineatura
+			
 			// Inserisce il paragrafo nello stream
 			content.append(grpar.getLeft()+" "+grpar.getTop()+" Td\n");
-				
+			
 			for(int idPar = 0;idPar < grpar.getTotaleRow();idPar++) {
 				GRRowParagraph grrow = grpar.getLineParagraph(idPar);
+				double leftRow = grpar.getLeft();
 				
 				grpar.addHeight(grrow.getMaxHeight());
 				
@@ -273,7 +332,7 @@ public class GRText extends GRVariableObject {
 					content.append("0 -"+(grrow.getMaxHeight()+grpar.getLineSpacing())+" TD\n");		// INTERLINEA
 					grpar.addHeight(grpar.getLineSpacing());
 					//grpar.addHeight(grrow.getMaxHeight()+grpar.getLineSpacing());
-					
+					topRowUnderline -= grrow.getMaxHeight()+grpar.getLineSpacing();
 				}
 				
 				for(int idText = 0;idText < grrow.getTotaleTextRow();idText++) {
@@ -291,15 +350,28 @@ public class GRText extends GRVariableObject {
 							flagToken = 0;
 					}
 					GRTextRowParagraph grtokentext = grrow.getTokenTextRow(idText);
-							
+					//System.out.println("TOKEN: "+grtokentext.getValue()+" - "+grtokentext.getUnderline()+" - "+grrow.getMaxHeight()+" - "+leftRow);
+					
 					content.append("/"+grtokentext.getFontId()+" "+grtokentext.getFontSize()+" Tf\n");
 					content.append(grtokentext.getRED()+" "+grtokentext.getGREEN()+" "+grtokentext.getBLUE()+" rg\n");	
 					// Un trucchetto relativamente all'allineamento justify
 					if(grpar.getAlignment() == ALIGN_JUSTIFY && (idPar+1) == grpar.getTotaleRow())
-						content.append(insertText(grrow.getGap(),grrow.getBlank(),ALIGN_LEFT,grtokentext.getFontSize(),grtokentext.getValue(),flagToken,grtokentext.getBlank()));
+						content.append(insertText(grtokentext,grrow.getGap(),grrow.getBlank(),ALIGN_LEFT,grtokentext.getFontSize(),grtokentext.getValue(),flagToken,grtokentext.getBlank()));
 					else {
-						content.append(insertText(grrow.getGap(),grrow.getBlank(),grpar.getAlignment(),grtokentext.getFontSize(),grtokentext.getValue(),flagToken,grtokentext.getBlank()));
-					}	
+						content.append(insertText(grtokentext,grrow.getGap(),grrow.getBlank(),grpar.getAlignment(),grtokentext.getFontSize(),grtokentext.getValue(),flagToken,grtokentext.getBlank()));
+					}
+					
+					// Se è sottolineato aggiunge le istruzioni a styleUnderline
+					if(grtokentext.getUnderline()) {
+						
+						styleUnderline = styleUnderline + "q\n";
+						styleUnderline = styleUnderline + "0.25 w\n";
+						styleUnderline = styleUnderline + leftRow+" "+topRowUnderline+" m\n";
+						styleUnderline = styleUnderline + ((grtokentext.getWidth() / 1000.0)+leftRow+grtokentext.getGapAdjustment())+" "+topRowUnderline+" l\n";
+						styleUnderline = styleUnderline + "S\n";
+						styleUnderline = styleUnderline + "Q\n";
+					}
+					leftRow += (grtokentext.getWidth() / 1000.0) + grtokentext.getGapAdjustment();
 				}
 								
 			}
@@ -311,8 +383,48 @@ public class GRText extends GRVariableObject {
 			grcontext.setHPosition(grpar.getTop() + heightFirstRow - maxHeight);
 		}
 		
-		//System.out.println(content.toString());
 		return content.toString();
+	}
+	
+	private Vector<GRTokenText> getTextRegex(String value) {
+		
+		Vector<GRTokenText> group = new Vector<GRTokenText>();
+		boolean openQuadra = false;
+		StringBuffer keyText = new StringBuffer();
+		StringBuffer valueText = new StringBuffer();
+		
+		for(int i = 0;i < value.length();i++) {
+			if(value.charAt(i) == '[') {
+				if(keyText.length() > 0) {
+					// Scarica le informazioni
+					group.add(new GRTokenText(keyText.toString(),valueText.toString()));
+					
+					keyText.setLength(0);
+					valueText.setLength(0);
+				}
+				openQuadra = true;
+			} else if(value.charAt(i) == ']') {
+				
+				openQuadra = false;
+			} else {
+				if(openQuadra) {
+					keyText.append(value.substring(i,i+1));
+				} else {
+					valueText.append(value.substring(i,i+1));
+				}
+			}
+			
+			
+		}
+		
+		if(keyText.length() > 0) {
+			// Scarica le informazioni
+			group.add(new GRTokenText(keyText.toString(),valueText.toString()));
+			
+			keyText.setLength(0);
+			valueText.setLength(0);
+		}
+		return group;
 	}
 	
 	private GRFont getFont(String id) {
@@ -324,9 +436,13 @@ public class GRText extends GRVariableObject {
 		
 		return null;
 	}
-	private void formatText(GRParagraph grpar,String value, String id, double fontSize, double cRED, double cGREEN, double cBLUE, short align) {
+	private void formatText(GRParagraph grpar,String value, String id, double fontSize, double cRED, double cGREEN, double cBLUE, short align, String underline) {
 		
 		//System.out.println("FT: "+value+" - "+grpar.getTotaleRow());
+		//boolean debug =false;
+		//if(value.startsWith("GS Global High Y"))
+		//	debug = true;
+		
 		int[] widths; 
 		int ascent;
 		int descent;
@@ -363,12 +479,18 @@ public class GRText extends GRVariableObject {
 		tempLenStream = 0;
 		tempBlank = 0;
 		
-		GRTextRowParagraph grtextrow = new GRTextRowParagraph(id,fontSize,dimFont,cRED,cGREEN,cBLUE);
+		GRTextRowParagraph grtextrow = new GRTextRowParagraph(id,fontSize,dimFont,cRED,cGREEN,cBLUE,underline);
 		grtextrow.setWidthBlank(widths[32] * fontSize);
 		initWord = false;
 		//System.out.println("WIDTH TOTALE: "+grpar.getWidth());
 		while(pointerStream < lenStream) {
 			int c = stream[pointerStream];
+			
+			// Per alcune codifiche particolari, i bit del carattere vengono
+			// sporcati e Java ritorna un valore negativo della ricodifica in int.
+			// Per questi assegnamo come dimensione quella del blank
+			if(c < -1)
+				c = 32;
 			
 			if(c == 92) {
 				
@@ -391,11 +513,12 @@ public class GRText extends GRVariableObject {
 				grpar.newRow();
 				
 				// Crea il nuovo token
-				grtextrow = new GRTextRowParagraph(id,fontSize,dimFont,cRED,cGREEN,cBLUE);
+				grtextrow = new GRTextRowParagraph(id,fontSize,dimFont,cRED,cGREEN,cBLUE,underline);
 				grtextrow.setWidthBlank(widths[32] * fontSize);
 				initWord = false;
 				dimToken = 0.0;
 			} else {
+				
 				dimToken = dimToken + (widths[c] * fontSize);
 				//System.out.println("CAR: "+(char)c+" - W: "+widths[c]+" - DIM: "+dimToken+" - ROW: "+grpar.getWidthRowSelected()+" - INITWORD: "+initWord);
 				
@@ -429,7 +552,7 @@ public class GRText extends GRVariableObject {
 						grpar.newRow();
 						
 						// Crea il nuovo token
-						grtextrow = new GRTextRowParagraph(id,fontSize,dimFont,cRED,cGREEN,cBLUE);
+						grtextrow = new GRTextRowParagraph(id,fontSize,dimFont,cRED,cGREEN,cBLUE,underline);
 						grtextrow.setWidthBlank(widths[32] * fontSize);
 						initWord = false;
 						dimToken = 0.0;
@@ -465,8 +588,7 @@ public class GRText extends GRVariableObject {
 		}
 		
 	}
-	
-	private String insertText(double gap, int blank, short align, double fontSize, String value, int flagPosition, int blankToken) {
+	private String insertText(GRTextRowParagraph grtokentext, double gap, int blank, short align, double fontSize, String value, int flagPosition, int blankToken) {
 		/* flagPosition:
 		 * 1: Primo token di una riga
 		 * 2: Ultimo token di una riga (nel caso in cui ci siano stati altri token)
@@ -478,6 +600,8 @@ public class GRText extends GRVariableObject {
 		double dimToken;
 		double lastToken;
 		int contatore = 1;
+		
+		grtokentext.setGapAdjustment(0.0);
 		
 		/* Gestione del Carriage Return */
 		if(value.endsWith("\\012")) {
@@ -519,37 +643,41 @@ public class GRText extends GRVariableObject {
 			while(matcher.find()) { 
 				
 				if(contatore == 1) {
-					if(flagPosition == 0 || flagPosition == 2)
+					if(flagPosition == 0 || flagPosition == 2) {
 						if(contatore == blankToken) {
 							ritorno = ritorno + "-" + lastToken;
-						} else
+							
+							grtokentext.addGapAdjustment((lastToken / 100.0));
+						} else {
 							ritorno = ritorno + "-" + dimToken;
+						
+							grtokentext.addGapAdjustment((dimToken / 100.0));
+						}
+					}
 				} else {
-					if(contatore == blankToken)
+					if(contatore == blankToken) {
 						ritorno = ritorno + "-" + lastToken;
-					else
+						
+						grtokentext.addGapAdjustment((lastToken / 100.0));
+					} else {
 						ritorno = ritorno + "-" + dimToken;
+						
+						grtokentext.addGapAdjustment((dimToken / 100.0));
+					}
 				}
 				
 				ritorno = ritorno + "("+matcher.group(0)+")";
-				
+				//System.out.println("RITORNO: "+ritorno);
 				contatore++;
 			}
 		}
 		
+		
 		ritorno = ritorno + "] TJ\n";
 		
-		/*
-		 * UN EVENTUALE SOTTOLINEATURA VA INSERITA QUI
-		ritorno = ritorno + "q\n";
-		ritorno = ritorno + "0.25 w\n";
-		ritorno = ritorno + "113.38 776.55 m\n";
-		ritorno = ritorno + "424.62 776.55 l\n";
-		ritorno = ritorno + "S\n";
-		ritorno = ritorno + "Q\n";
-		*/
-		
+		grtokentext.setGapAdjustment(grtokentext.getGapAdjustment() / 10.0 * grtokentext.getFontSize());
 		
 		return ritorno;
 	}
+	
 }

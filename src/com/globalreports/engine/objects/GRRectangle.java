@@ -170,5 +170,5 @@ public class GRRectangle extends GRShape {
 		stream.add(content.toString());
 		return stream;
 	}
-	
+
 }

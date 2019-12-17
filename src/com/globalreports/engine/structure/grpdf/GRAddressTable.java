@@ -56,6 +56,7 @@ public class GRAddressTable {
 	private long addressImages;
 	private long addressFonts;
 	private Vector<Long> addressPage;
+	private Vector<Long> addressTemplate;
 	
 	public GRAddressTable(long address) {
 		this.addressTable = address;
@@ -66,6 +67,7 @@ public class GRAddressTable {
 	private void init() {
 		addressFonts = 0;
 		addressPage = new Vector<Long>();
+		addressTemplate = new Vector<Long>();
 	}
 	
 	public void setAddressImage(long address) {
@@ -85,6 +87,12 @@ public class GRAddressTable {
 	}
 	public long getAddressPage(int i) {
 		return addressPage.get(i);
+	}
+	public void addAddressTemplate(long address) {
+		addressTemplate.add(new Long(address));
+	}
+	public long getAddressTemplate(int i) {
+		return addressTemplate.get(i);
 	}
 	public long getAddressTable() {
 		return addressTable;

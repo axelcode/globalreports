@@ -95,7 +95,7 @@ public class GRParser {
 		risultato = estraiCondizione(condizione);
 		//System.out.println("RIS: "+risultato);
 		boolean e = esito(risultato);
-		
+		//System.out.println("ESITO: "+e);
 		return e;
 	}
 	private boolean esito(String value) {
@@ -124,6 +124,8 @@ public class GRParser {
 					andamento = 2;
 			} 
 			
+			if(ritEsito == 1 && andamento == 2)
+				return true;
 		}
 		
 		if(ritEsito == 0)
@@ -200,6 +202,7 @@ public class GRParser {
 			return "TRUE";
 		else
 			return "FALSE";
+		
 		
 	}
 	

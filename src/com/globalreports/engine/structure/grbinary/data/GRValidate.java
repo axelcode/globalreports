@@ -59,6 +59,7 @@ import java.util.regex.Matcher;
 
 import com.globalreports.engine.err.*;
 
+
 public abstract class GRValidate {
 	private final static String OPERATOR_BASIC_NOTEMPTY	= "$NOTEMPTY";
 	private final static String OPERATOR_BASIC_NUMBER	= "$NUMBER";

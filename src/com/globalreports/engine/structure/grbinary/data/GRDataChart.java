@@ -1,6 +1,6 @@
 /*
  * ==========================================================================
- * class name  : com.globalreports.engine.objects.text.GRParagraph
+ * class name  : com.globalreports.engine.structure.grbinary.data.GRDataChart
  * 
  * Begin       : 
  * Last Update : 
@@ -47,99 +47,41 @@
  * which carries forward this exception.
  * 
  */
-package com.globalreports.engine.objects.variable.text;
+package com.globalreports.engine.structure.grbinary.data;
 
-public class GRTextRowParagraph {
-	private String value;
-	private String fontId;
-	private double fontSize;
-	private int fontAscent;
-	private double colorRED;
-	private double colorGREEN;
-	private double colorBLUE;
-	private int blank;
-	private double widthBlank;
-	private double width;
-	private boolean underline;
+import java.util.Vector;
+
+public class GRDataChart {
+	private String name;
+	private Vector<GRDataVoice> grvoice;
+	private GRDataVoice refVoice;
 	
-	private double gapAdjustment;	// E' la quantità di spazio aggiuntivo
-									// che viene inserito in fase di rendering
-									// della stringa per ottenere l'allineamento
-									// specificato
-	
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE, String valueUnderline) {
-		this.fontId = fontId;
-		this.fontSize = fontSize;
-		this.fontAscent = fontAscent;
-		this.colorRED = cRED;
-		this.colorGREEN = cGREEN;
-		this.colorBLUE = cBLUE;
+	public GRDataChart(String name) {
+		this.name = name;
 		
-		blank = 0;
-		width = 0.0;
-		
-		if(valueUnderline.equals("underline"))
-			underline = true;
-		else
-			underline = false;
-	}
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE) {
-		this(fontId, fontSize, fontAscent, cRED, cGREEN, cBLUE, "none");
-	}
-	public void setValue(String value) {
-		this.value = value;
-	}
-	public String getValue() {
-		return value;
-	}
-	public void setWidth(double width) {
-		this.width = width;
-	}
-	public double getWidth() {
-		return width;
-	}
-	public void setWidthBlank(double value) {
-		this.widthBlank = value;
-	}
-	public double getWidthBlank() {
-		return widthBlank;
-	}
-	public void addBlank() {
-		blank++;
-	}
-	public int getBlank() {
-		return blank;
+		grvoice = new Vector<GRDataVoice>();
+		refVoice = null;
 	}
 	
-	public String getFontId() {
-		return fontId;
+	public void addVoice() {
+		refVoice = new GRDataVoice();
+		
+		grvoice.add(refVoice);
 	}
-	public double getFontSize() {
-		return fontSize;
+	public void addVoice(GRDataVoice refVoice) {
+		grvoice.add(refVoice);
 	}
-	public int getFontAscent() {
-		return fontAscent;
+	public void addElementVoice(String key, String value) {
+		refVoice.addElement(key, value);
 	}
-	public double getRED() {
-		return colorRED;
+	public GRDataVoice getElement(int i) {
+		return grvoice.get(i);
 	}
-	public double getGREEN() {
-		return colorGREEN;
+	
+	public int getTotaleElement() {
+		return grvoice.size();
 	}
-	public double getBLUE() {
-		return colorBLUE;
-	}
-	public boolean getUnderline() {
-		return underline;
-	}
-	public void setGapAdjustment(double value) {
-		gapAdjustment = value;
-	}
-	public void addGapAdjustment(double value) {
-		gapAdjustment += value;
-	}
-	public double getGapAdjustment() {
-		return gapAdjustment;
+	public String getName() {
+		return name;
 	}
 }
-

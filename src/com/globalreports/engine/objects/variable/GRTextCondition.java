@@ -189,7 +189,12 @@ public class GRTextCondition extends GRVariableObject {
 			}
 		
 		}
-		
+
+		if(stream.size() == 0) {
+			/* Se nessuna condizione viene soddisfatta restituisce uno stream vuoto */
+			stream.add("");
+		}
+			
 		return stream;
 	}
 }

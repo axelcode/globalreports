@@ -70,13 +70,22 @@ public class GRData {
 	
 	private File fileXml;
 	private String pathXml;
+	
 	private Hashtable<String, String> xml;
+	private Vector<GRDataVariable> xmlVariable;
 	
 	private Vector<GRDataList> dataList;
 	private Stack<GRDataList> stackDataList;
 	private GRDataList refDataList;
 	private Stack<GRDataRow> stackDataRow;
 	private GRDataRow refDataRow;
+	
+	private Vector<GRDataChart> dataChart;
+	
+	/* Gestione degli allegati tramite file xml */
+	private Vector<String> attachedList;	// Per il momento gli allegati
+											// vengono gestiti come String
+											// indicanti il percorso del file fisico
 	
 	public GRData() {
 		
@@ -86,6 +95,7 @@ public class GRData {
 		fileXml = null;
 		
 		xml = new Hashtable<String, String>();
+		xmlVariable = new Vector<GRDataVariable>();
 		
 		stackDataList = null;
 		stackDataRow = null;
@@ -97,6 +107,7 @@ public class GRData {
 		this.fileXml = fileXml;
 		
 		xml = new Hashtable<String, String>();
+		xmlVariable = new Vector<GRDataVariable>();
 		
 		stackDataList = null;
 		stackDataRow = null;
@@ -138,8 +149,46 @@ public class GRData {
 			readList(element);
 			
 			dataList.add(refDataList);
-		} 
+		} else if(element.getName().equals("attach")) {
+			readAttach(element);
+		} else if(element.getName().equals("chart")) {
+			if(dataChart == null)
+				dataChart = new Vector<GRDataChart>();
+			
+			GRDataChart refDataChart = readChart(element);
+			dataChart.add(refDataChart);
+			
+		}
 		
+	}
+	private void readAttach(Element el) {
+		
+		List children = el.getChildren();
+		Iterator iterator = children.iterator();
+		
+		while(iterator.hasNext()) {
+			Element element = (Element)iterator.next();
+			
+			if(element.getName().equals("file")) {
+				
+				readFileAttach(element);
+			}
+		}
+	}
+	private void readFileAttach(Element el) {
+		List children = el.getChildren();
+		Iterator iterator = children.iterator();
+		
+		if(attachedList == null)
+			attachedList = new Vector<String>();
+		
+		while(iterator.hasNext()) {
+			Element element = (Element)iterator.next();
+			
+			if(element.getName().equals("path")) {
+				attachedList.add(element.getValue());
+			}
+		}
 	}
 	private void readData(Element el) {
 		List children = el.getChildren();
@@ -149,11 +198,59 @@ public class GRData {
 			Element element = (Element)iterator.next();
 			
 			if(((Element)element.getParent()).getName().equals("data")) {
+				GRDataVariable dataVariable = new GRDataVariable(element.getName(),element.getValue());
+				
+				// Verifica sugli attributi
+				String attrColor = element.getAttributeValue("COLOR");
+				if(attrColor != null)
+					dataVariable.setColor(attrColor);
+				
+				xmlVariable.add(dataVariable);
+				
 				xml.put(element.getName(),element.getValue());
+				
 			}
 		}
 		
 	} 
+	private GRDataChart readChart(Element element) {
+		List children = element.getChildren();
+		GRDataChart refDataChart = null;
+		String name = "";
+		
+		for(int i = 0;i < children.size();i++) {
+			Element e = (Element)children.get(i);
+			
+			if(((Element)e.getParent()).getName().equals("chart")) {
+				if(e.getName().equals("name")) {
+					refDataChart = new GRDataChart(e.getValue());
+					name = e.getValue();
+				} else if(e.getName().equals("voice")) {
+					
+					GRDataVoice grdataVoice = readVoiceChart(e);
+					refDataChart.addVoice(grdataVoice);
+					//readRowList(e);
+										
+				}
+			} 
+		}
+		
+		return refDataChart;
+	}
+	private GRDataVoice readVoiceChart(Element element) {
+		List children = element.getChildren();
+		GRDataVoice refVoice = new GRDataVoice();
+		
+		for(int i = 0;i < children.size();i++) {
+			Element e = (Element)children.get(i);
+			if(((Element)e.getParent()).getName().equals("voice")) {
+				refVoice.addElement(e.getName(), e.getValue());
+			}
+			
+		}
+		
+		return refVoice;
+	}
 	private void readList(Element element) {
 		List children = element.getChildren();
 		
@@ -197,7 +294,16 @@ public class GRData {
 	}
 	
 	public String getValue(String nameVariable) {
-		return xml.get(nameVariable);
+		
+		for(int i = 0;i < xmlVariable.size();i++) {
+			GRDataVariable dataVariable = xmlVariable.get(i);
+			
+			if(dataVariable.getName().equals(nameVariable))
+				return dataVariable.getValue();
+		}
+		
+		return null;
+		//return xml.get(nameVariable);
 	}
 	
 	public GRDataList getDataList(String name) {
@@ -213,8 +319,19 @@ public class GRData {
 		return null;
 	}
 
-	public String addVariables(String value) throws GRValidateException {
+	public GRDataChart getDataChart(String name) {
+		if(dataChart == null)
+			return null;
 		
+		for(int i = 0;i < dataChart.size();i++) {
+			if(dataChart.get(i).getName().equals(name)) {
+				return dataChart.get(i);
+			}
+		}
+		
+		return null;
+	}
+	public String addVariables(String value) throws GRValidateException {
 		String valueVariable;
 		Pattern pattern = Pattern.compile(REG_VARIABLE);
 		Matcher matcher = pattern.matcher(value);
@@ -236,6 +353,8 @@ public class GRData {
 			}
 			
 			if(valueVariable != null) {
+				
+				//valueVariable = "[f1:10:1.0,0.0,0.0:none]"+valueVariable+"[f1:10:0.0,0.0,0.0]";
 				value = value.replace(matcher.group(0),GREncode_ISO8859.lineASCIIToOct(valueVariable));
 			} else {
 				value = value.replaceAll(REG_VARIABLE, "");
@@ -245,5 +364,8 @@ public class GRData {
 		return value;
 	}
 
+	public Vector<String> getAttachedList() {
+		return attachedList;
+	}
 }
 

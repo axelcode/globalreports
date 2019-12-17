@@ -55,13 +55,17 @@ import java.util.Vector;
 import com.globalreports.engine.err.GRBarcodeException;
 import com.globalreports.engine.err.GRValidateException;
 import com.globalreports.engine.objects.GRObject;
+import com.globalreports.engine.objects.variable.barcode.GRBarcode128;
 import com.globalreports.engine.objects.variable.barcode.GRBarcode39;
+import com.globalreports.engine.objects.variable.barcode.GRQRCode;
 import com.globalreports.engine.structure.GRColor;
 import com.globalreports.engine.structure.GRMeasures;
 import com.globalreports.engine.structure.grpdf.GRContext;
 
 public abstract class GRBarcode extends GRVariableObject {
 	public static final short TYPEBARCODE_CODE_39				= 1;
+	public static final short TYPEBARCODE_QRCODE				= 2;
+	public static final short TYPEBARCODE_CODE_128				= 3;
 	
 	protected double widthStroke;
 	protected double left;
@@ -83,7 +87,10 @@ public abstract class GRBarcode extends GRVariableObject {
 	public static GRBarcode createBarcode(String typeBarcode) {
 		if(typeBarcode.equals("code39"))
 			return GRBarcode.createBarcode(GRBarcode.TYPEBARCODE_CODE_39);
-		
+		else if(typeBarcode.equals("code128"))
+			return GRBarcode.createBarcode(GRBarcode.TYPEBARCODE_CODE_128);
+		else if(typeBarcode.equals("qrcode"))
+			return GRBarcode.createBarcode(GRBarcode.TYPEBARCODE_QRCODE);
 		return null;
 	}
 	public static GRBarcode createBarcode(short typeBarcode) {
@@ -92,6 +99,14 @@ public abstract class GRBarcode extends GRVariableObject {
 		switch(typeBarcode) {
 		case TYPEBARCODE_CODE_39:
 			grbarcode = new GRBarcode39();
+			break;
+			
+		case TYPEBARCODE_CODE_128:
+			grbarcode = new GRBarcode128();
+			break;
+			
+		case TYPEBARCODE_QRCODE:
+			grbarcode = new GRQRCode();
 			break;
 			
 		}

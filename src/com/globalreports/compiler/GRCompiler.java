@@ -69,13 +69,19 @@ import com.globalreports.compiler.resources.GRFontResource;
 import com.globalreports.compiler.resources.GRImageResource;
 import com.globalreports.engine.GRPDF;
 import com.globalreports.engine.err.GRCompileException;
+import com.globalreports.engine.err.GRCompileIOException;
 import com.globalreports.engine.err.GRCompileNameDocumentMissingException;
+import com.globalreports.engine.err.GRCompileTypeNotDefined;
+import com.globalreports.engine.err.GRCompileWriteGrbException;
+import com.globalreports.engine.err.GRCompileXmlException;
 import com.globalreports.engine.objects.GRCircle;
 import com.globalreports.engine.objects.GRImage;
 import com.globalreports.engine.objects.GRLine;
 import com.globalreports.engine.objects.GRObject;
 import com.globalreports.engine.objects.GRRectangle;
 import com.globalreports.engine.objects.GRShape;
+import com.globalreports.engine.objects.GRSystemObject;
+import com.globalreports.engine.objects.sys.GRSysPaginaNdiM;
 import com.globalreports.engine.objects.variable.GRBarcode;
 import com.globalreports.engine.objects.variable.GRChart;
 import com.globalreports.engine.objects.variable.GRText;
@@ -88,6 +94,7 @@ import com.globalreports.engine.objects.variable.dynamic.tablelist.GRTableListCe
 import com.globalreports.engine.objects.variable.dynamic.tablelist.GRTableListSection;
 import com.globalreports.engine.structure.font.encoding.GREncode_ISO8859;
 import com.globalreports.engine.structure.grbinary.GRDocument;
+import com.globalreports.engine.structure.grbinary.GRPage;
 
 
 public class GRCompiler {
@@ -113,21 +120,22 @@ public class GRCompiler {
 		
 		nameDocument = null;
 		pathFont = null;
-		typography = "MM";	// L'unità di misura predefinita sono i millimetri
+		typography = "MM";	// L'unit�� di misura predefinita sono i millimetri
 	}
 	
 	public void compile(String fileOutput) throws GRCompileException {
 		grdocument = new GRDocument();
+		nameDocument = fileOutput;
 		
 		/* Legge il file .main */
 		this.readSource(grsource);
 		
-		
 	}
 	public void compile() throws GRCompileException {
 		this.compile(null);
+		
 	}
-	public void writeGRB() {
+	public String writeGRB() throws GRCompileWriteGrbException {
 		RandomAccessFile rOut;
 		String dirOut = (new File(grsource)).getParent();
 
@@ -135,11 +143,12 @@ public class GRCompiler {
 			dirOut = "";
 		else
 			dirOut = dirOut + "//";
-					
+				
 		String pathOut = dirOut + nameDocument + ".grb";
 		long fPointImage;
 		long fPointFont;
-		Vector<Long> fPointPage;
+		Vector<Long> fPointPage;		// Contiene gli indirizzi delle pagine
+		Vector<Long> fPointTemplate;	// Contiene gli indirizzi dei template
 		long fPointAddressTable;
 		
 		int totPagine = 0;
@@ -156,7 +165,8 @@ public class GRCompiler {
 			// Init 
 			fPointAddressTable = 0;
 			fPointFont = 0;
-			fPointPage = new Vector<Long>();
+			fPointPage = new Vector<Long>();	
+			fPointTemplate = new Vector<Long>();
 					
 			// HEADER
 			/*
@@ -235,7 +245,42 @@ public class GRCompiler {
 						
 						
 			}
-					
+			
+			// TEMPLATES
+			// Inserisce il contenuto di ogni template
+			
+			for(int i = 0;i < grdocument.getNumberTemplates();i++) {
+				fPointTemplate.add(new Long(rOut.getFilePointer()));
+				
+				// Nome della pagina
+				rOut.writeInt((grdocument.getTemplateName(i)).length());
+				rOut.writeBytes(grdocument.getTemplateName(i));
+				
+				// Posizione
+				rOut.writeShort(grdocument.getTemplatePosition(i));
+				
+				Vector<GRObject> grtemplateobj = grdocument.getTemplateObject(i);
+				if(grtemplateobj != null) {
+					rOut.writeInt(grtemplateobj.size());
+					// Cicla per tutti gli oggetti trovati
+					for(int j = 0;j < grtemplateobj.size();j++) {
+						GRObject grobj = grtemplateobj.get(j);
+								
+						short type = grobj.getType();
+								
+						rOut.writeShort(type);
+						if(type == GRObject.TYPEOBJ_TEXT) {
+							this.insertTEXT(grobj, rOut);	
+						} else if(type == GRObject.TYPEOBJ_IMAGE) {
+							this.insertIMAGE(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_SHAPE) {
+							this.insertSHAPE(grobj, rOut);
+						}
+					}
+				} else {
+					rOut.writeInt(0);
+				}
+			}
 			// PAGES
 			// Inserisce il contenuto di ogni pagina
 			
@@ -249,7 +294,7 @@ public class GRCompiler {
 				rOut.writeDouble(grdocument.getPageFooter(i));
 						
 				// HEAD
-				Vector<GRObject> grheaderobj = grdocument.getHeaderObject();
+				Vector<GRObject> grheaderobj = grdocument.getHeaderObject(i);
 
 				if(grheaderobj != null) {
 					rOut.writeInt(grheaderobj.size());
@@ -273,41 +318,43 @@ public class GRCompiler {
 				}
 						
 				// BODY
-				Vector<GRObject> grbodyobj = grdocument.getBodyObject();
-				rOut.writeInt(grbodyobj.size());
-					
-				// Cicla per tutti gli oggetti trovati
-				for(int j = 0;j < grbodyobj.size();j++) {
-					GRObject grobj = grbodyobj.get(j);
-							
-					short type = grobj.getType();
-							
-					rOut.writeShort(type);
-					if(type == GRObject.TYPEOBJ_TEXT) {
-						this.insertTEXT(grobj, rOut);	
-					} else if(type == GRObject.TYPEOBJ_IMAGE) {
-						this.insertIMAGE(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_SHAPE) {
-						this.insertSHAPE(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_LIST) {
-						this.insertLIST(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_TABLELIST) {
-						this.insertTABLELIST(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_TEXTCONDITION) {
-						this.insertTEXTCONDITION(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_CHART) {
-						this.insertCHART(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_GROUP) {
-						this.insertGROUP(grobj, rOut);
-					} else if(type == GRObject.TYPEOBJ_BARCODE) {
-						this.insertBARCODE(grobj,  rOut);
-					}
-							
-							
-				}
+				Vector<GRObject> grbodyobj = grdocument.getBodyObject(i);
+				
+					rOut.writeInt(grbodyobj.size());
 						
+					// Cicla per tutti gli oggetti trovati
+					for(int j = 0;j < grbodyobj.size();j++) {
+						GRObject grobj = grbodyobj.get(j);
+								
+						short type = grobj.getType();
+								
+						rOut.writeShort(type);
+						if(type == GRObject.TYPEOBJ_TEXT) {
+							this.insertTEXT(grobj, rOut);	
+						} else if(type == GRObject.TYPEOBJ_IMAGE) {
+							this.insertIMAGE(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_SHAPE) {
+							this.insertSHAPE(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_LIST) {
+							this.insertLIST(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_TABLELIST) {
+							this.insertTABLELIST(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_TEXTCONDITION) {
+							this.insertTEXTCONDITION(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_CHART) {
+							this.insertCHART(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_GROUP) {
+							this.insertGROUP(grobj, rOut);
+						} else if(type == GRObject.TYPEOBJ_BARCODE) {
+							this.insertBARCODE(grobj,  rOut);
+						}
+								
+								
+					}
+				
+				
 				// FOOT
-				Vector<GRObject> grfooterobj = grdocument.getFooterObject();
+				Vector<GRObject> grfooterobj = grdocument.getFooterObject(i);
 				
 				if(grfooterobj != null) {
 					rOut.writeInt(grfooterobj.size());
@@ -328,6 +375,38 @@ public class GRCompiler {
 					}
 				} else {
 					rOut.writeInt(0);
+				}
+				
+				// Accoda eventuali oggetti di sistema
+				Vector<GRSystemObject> grsys = grdocument.getSystemObject(i);
+				
+				if(grsys != null) {
+					rOut.writeShort(grsys.size());
+					// Cicla per tutti gli oggetti trovati
+					for(int j = 0;j < grsys.size();j++) {
+						GRSystemObject grobj = grsys.get(j);
+								
+						this.insertSYSOBJECT(grobj, rOut);	
+						
+					}
+				} else {
+					rOut.writeShort(0);
+				}
+				
+				// Se presente inserisce il template
+				if(grdocument.getPageTemplate(i) != null) {
+					Vector<String> pageTemplate = grdocument.getPageTemplate(i);
+					
+					rOut.writeInt(pageTemplate.size());	// Scrive il numero totale di template presenti nella pagina
+					
+					for(int j = 0;j < pageTemplate.size();j++) {
+						rOut.writeInt(pageTemplate.get(j).length());
+						rOut.writeBytes(pageTemplate.get(j));
+						
+					}
+					
+				} else {
+					rOut.writeInt(-1);
 				}
 				// Ogni altra sezione viene definita da un flag di 2 byte
 				// Se zero terminata la pagina
@@ -365,25 +444,34 @@ public class GRCompiler {
 			// INT(4): Totale pagine presenti nel documento
 			// FOR-EACH LONG(8): Indirizzo di inizio della singola pagina
 			
+			// DALLA 1.31 IN SU - INT(4): Totale template presenti nel documento
+			// FOR-EACH LONG(8): Indirizzo di inizio del singolo template
+						
 			fPointAddressTable = rOut.getFilePointer();
 			
 			rOut.writeLong(fPointImage);				// Address Images
 			rOut.writeLong(fPointFont);					// Address Fonts
+			
+			// PAGES
 			rOut.writeInt(grdocument.getNumberPages());	// Totale pagine 
-					
 			for(int i = 0;i < grdocument.getNumberPages();i++) {
 				rOut.writeLong(fPointPage.get(i));
+			}
+			// PAGES
+			rOut.writeInt(grdocument.getNumberTemplates());	// Totale template 
+			for(int i = 0;i < grdocument.getNumberTemplates();i++) {
+				rOut.writeLong(fPointTemplate.get(i));
 			}
 					
 			// Per finire aggiorna l'address init table
 			rOut.seek(64);
 			rOut.writeLong(fPointAddressTable);
 			
-		} catch(FileNotFoundException fnfe) {
-			System.out.println("GRManage::compila::FileNotFoundException: "+fnfe.getMessage());
-		} catch(IOException ioe) {
-			System.out.println("GRManage::compila::IOException: "+ioe.getMessage());
-		}
+			return nameDocument + ".grb";
+		
+		} catch(Exception e) {
+			throw new GRCompileWriteGrbException(e.getMessage());
+		} 
 	}
 	
 	
@@ -406,9 +494,12 @@ public class GRCompiler {
 			} 
 		} catch(JDOMException jde) {
 			System.out.println("GRManage::readSource::JDOMException: "+jde.getMessage());
+		
+			throw new GRCompileXmlException(jde.getMessage());
 		} catch(IOException ioe) {
 			ioe.printStackTrace();
 			
+			throw new GRCompileIOException(grsource);
 		} 
 		
 	}
@@ -418,6 +509,8 @@ public class GRCompiler {
 			readMainInfo(element);
 		} else if(element.getName().equals("page")) {
 			readPage(element);
+		} else if(element.getName().equals("template")) {
+			readTemplate(element);
 		}
 			
 	}
@@ -430,7 +523,8 @@ public class GRCompiler {
 			
 			if(element.getName().equals("namedocument")) {
 				if(((Element)element.getParent()).getName().equals("grinfo")) {
-					nameDocument = element.getValue();
+					if(nameDocument == null)
+						nameDocument = element.getValue();
 				}
 			} else if(element.getName().equals("pathfont")) {
 				if(((Element)element.getParent()).getName().equals("grinfo")) {
@@ -446,7 +540,41 @@ public class GRCompiler {
 			throw new GRCompileNameDocumentMissingException(grsource);
 		}
 	}
-	private void readPage(Element el) {
+	
+	private void readTemplate(Element el) throws GRCompileException {
+		List children = el.getChildren();
+		Iterator iterator = children.iterator();
+		
+		grdocument.addTemplate();
+		
+		while(iterator.hasNext()) {
+			Element element = (Element)iterator.next();
+			if(element.getName().equals("name")) {
+				grdocument.setTemplateName(element.getValue());
+			
+			} else if(element.getName().equals("position")) {
+				grdocument.setTemplatePosition(element.getValue());
+				
+			} else if(element.getName().equals("shape") || element.getName().equals("grshape")) {
+				GRShape refShape = readShape(element);
+					
+				grdocument.addTemplateObj(refShape);
+				 
+			} else if(element.getName().equals("text") || element.getName().equals("grtext")) {
+				GRText refText = readText(element);
+				
+				grdocument.addTemplateObj(refText);
+			} else if(element.getName().equals("image") || element.getName().equals("grimage")) {
+				GRImage refImage = readImage(element);
+				
+				grdocument.addTemplateObj(refImage);
+			} 
+			
+		}
+		
+		
+	}
+	private void readPage(Element el) throws GRCompileException {
 		List children = el.getChildren();
 		Iterator iterator = children.iterator();
 		
@@ -475,17 +603,28 @@ public class GRCompiler {
 				if(((Element)element.getParent()).getName().equals("page")) {
 					grdocument.setPageFooter(GRDimension.getDocumentDimension(typography,element.getValue()));
 				}	
+			} else if(element.getName().equals("grtemplate")) {
+				readPageTemplate(element);
 			} else if(element.getName().equals("grheader")) {
 				readHeader(element);
 			} else if(element.getName().equals("grbody")) {
 				readBody(element);
 			} else if(element.getName().equals("grfooter")) {
 				readFooter(element);
-			} else if(element.getName().equals("grpageobjects")) {
-				//readPageObjects(element);
-			}
+			} 
 		}
 		 
+	}
+	private void readPageTemplate(Element el) {
+		List children = el.getChildren();
+		Iterator iterator = children.iterator();
+		
+		while(iterator.hasNext()) {
+			Element element = (Element)iterator.next();
+			if(element.getName().equals("template")) {
+				grdocument.addPageTemplate(element.getValue());
+			}
+		}
 	}
 	private void readHeader(Element el) {
 		List children = el.getChildren();
@@ -493,16 +632,16 @@ public class GRCompiler {
 		
 		while(iterator.hasNext()) {
 			Element element = (Element)iterator.next();
-			if(element.getName().equals("shape")) {
+			if(element.getName().equals("shape") || element.getName().equals("grshape")) {
 				GRShape refShape = readShape(element);
 					
 				grdocument.addPageHeaderObj(refShape);
 				 
-			} else if(element.getName().equals("text")) {
+			} else if(element.getName().equals("text") || element.getName().equals("grtext")) {
 				GRText refText = readText(element);
 				
 				grdocument.addPageHeaderObj(refText);
-			} else if(element.getName().equals("image")) {
+			} else if(element.getName().equals("image") || element.getName().equals("grimage")) {
 				GRImage refImage = readImage(element);
 				
 				grdocument.addPageHeaderObj(refImage);
@@ -510,49 +649,54 @@ public class GRCompiler {
 			
 		}
 	}
-	private void readBody(Element el) {
+	private void readBody(Element el) throws GRCompileException {
 		List children = el.getChildren();
 		Iterator iterator = children.iterator();
 		
 		while(iterator.hasNext()) {
 			Element element = (Element)iterator.next();
-			if(element.getName().equals("shape")) {
+			if(element.getName().equals("shape") || element.getName().equals("grshape")) {
 				GRShape refShape = readShape(element);
 					
 				grdocument.addPageObj(refShape);
 				 
-			} else if(element.getName().equals("text")) {
+			} else if(element.getName().equals("text") || element.getName().equals("grtext")) {
 				GRText refText = readText(element);
 				
 				grdocument.addPageObj(refText);
-			} else if(element.getName().equals("image")) {
+			} else if(element.getName().equals("image") || element.getName().equals("grimage")) {
 				GRImage refImage = readImage(element);
 				
+				if(refImage != null)
 				grdocument.addPageObj(refImage);
-			} else if(element.getName().equals("textcondition")) {
+			} else if(element.getName().equals("textcondition") || element.getName().equals("grtextcondition")) {
 				GRTextCondition refTextCondition = readTextCondition(element);
 				
 				grdocument.addPageObj(refTextCondition);
-			} else if(element.getName().equals("chart")) {
+			} else if(element.getName().equals("chart") || element.getName().equals("grchart")) {
 				GRChart grchart = readChart(element);
 				
 				grdocument.addPageObj(grchart);
-			} else if(element.getName().equals("group")) {
+			} else if(element.getName().equals("group") || element.getName().equals("grgroup")) {
 				GRGroup grgroup = readGroup(element);
 				
 				grdocument.addPageObj(grgroup);
-			} else if(element.getName().equals("list")) {
+			} else if(element.getName().equals("list") || element.getName().equals("grlist")) {
 				GRList grlist = readList(element);
 				
 				grdocument.addPageObj(grlist);
-			} else if(element.getName().equals("tablelist")) {
+			} else if(element.getName().equals("tablelist") || element.getName().equals("grtablelist")) {
 				GRTableList grtablelist = readTableList(element);
 				
 				grdocument.addPageObj(grtablelist);
-			} else if(element.getName().equals("barcode")) {
+			} else if(element.getName().equals("barcode") || element.getName().equals("grbarcode")) {
 				GRBarcode grbarcode = readBarcode(element);
 				
 				grdocument.addPageObj(grbarcode);
+			} else if(element.getName().equals("sysobject") || element.getName().equals("grsysobject")) {	// Oggetti di sistema
+				GRSystemObject sysObject = readSystemObject(element);
+				
+				grdocument.addPageSysObj(sysObject, GRPage.SECTION_PAGE_BODY);
 			}
 			
 		}
@@ -563,16 +707,16 @@ public class GRCompiler {
 		
 		while(iterator.hasNext()) {
 			Element element = (Element)iterator.next();
-			if(element.getName().equals("shape")) {
+			if(element.getName().equals("shape") || element.getName().equals("grshape")) {
 				GRShape refShape = readShape(element);
 					
 				grdocument.addPageFooterObj(refShape);
 				 
-			} else if(element.getName().equals("text")) {
+			} else if(element.getName().equals("text") || element.getName().equals("grtext")) {
 				GRText refText = readText(element);
 				
 				grdocument.addPageFooterObj(refText);
-			} else if(element.getName().equals("image")) {
+			} else if(element.getName().equals("image") || element.getName().equals("grimage")) {
 				GRImage refImage = readImage(element);
 				
 				grdocument.addPageFooterObj(refImage);
@@ -777,6 +921,11 @@ public class GRCompiler {
 		double height = 0.0;
 		String value = "";
 		
+		// Proprietà aggiunta il 20/07/2017
+		// false <default>: Il testo inserito viene filtrato dei caratteri 0A e 0D
+		// true: Il testo mantiene gli acapo per come si presentano nel grx
+		boolean pre = false;
+		
 		double lineSpacing = 2.0;
 		
 		List children = el.getChildren();
@@ -800,9 +949,11 @@ public class GRCompiler {
 			} else if(element.getName().equals("linespacing")) {
 				lineSpacing = GRDimension.getDocumentDimension(typography,element.getValue());
 			} else if(element.getName().equals("value")) {
-				value = GREncode_ISO8859.lineASCIIToOct(element.getValue());
+				value = GREncode_ISO8859.lineASCIIToOct(element.getValue(), pre);
 				value = getTextValue(value);
 				//value = getTextValue(element.getValue());
+			} else if(element.getName().equals("pre")) {
+				pre = Boolean.parseBoolean(element.getValue());
 			}
 		}
 		
@@ -816,8 +967,12 @@ public class GRCompiler {
 
 		return refText;
 	}
-	private String getTextValue(String value) {
-		String REG_TEXT = "\\[([a-zA-Z0-9\\-_]+):([0-9]+)(:([0-9]+),([0-9]+),([0-9]+)){0,}\\]([a-zA-Z0-9 ,!$%&;:\\\\\"\'\\?\\^\\.\\{\\}\\-\\/\\(\\)]+)";
+	private String getTextFormat(String value) {
+		/* Il format style dei testi è il seguente:
+		 * [FontName:FontSize:Color R G B:FontUnderline (optional)]
+		 */
+		
+		String REG_TEXT = "\\[([a-zA-Z0-9\\-_]+):([0-9]+)(:([0-9]+),([0-9]+),([0-9]+)){0,}(:underline|:none){0,1}\\]";
 		String newValue = "";
 		
 		double cRED;
@@ -828,7 +983,8 @@ public class GRCompiler {
 		Matcher matcher = pattern.matcher(value);
 		
 		String fontName = "";
-		
+		String underline = "";
+				
 		while(matcher.find()) {
 			cRED = 0.0;
 			cGREEN = 0.0;
@@ -844,8 +1000,56 @@ public class GRCompiler {
 				cBLUE = GRDimension.fromRGBToPDF(Integer.parseInt(matcher.group(6)));
 				
 			}
-						
-			newValue = newValue + "["+id+":"+matcher.group(2)+":"+cRED+","+cGREEN+","+cBLUE+"]"+matcher.group(7);
+				
+			/* Gestione del sottolineato */
+			if(matcher.group(7) != null) {
+				underline = matcher.group(7).substring(1);
+			} else {
+				underline = "none";
+			}
+			newValue = newValue + "["+id+":"+matcher.group(2)+":"+cRED+","+cGREEN+","+cBLUE+":"+underline+"]";
+			
+		}
+		
+		return newValue;
+	}
+	private String getTextValue(String value) {
+		String REG_TEXT = "\\[([a-zA-Z0-9\\-_]+):([0-9]+)(:([0-9]+),([0-9]+),([0-9]+)){0,}(:underline|:none){0,1}\\]([a-zA-Z0-9 ,!$%&;:\\\\\"\'\\?\\^\\.\\{\\}\\-\\/\\(\\)]+)";
+		String newValue = "";
+		
+		double cRED;
+		double cGREEN;
+		double cBLUE;
+		
+		Pattern pattern = Pattern.compile(REG_TEXT);
+		Matcher matcher = pattern.matcher(value);
+		
+		String fontName = "";
+		String underline = "";
+				
+		while(matcher.find()) {
+			cRED = 0.0;
+			cGREEN = 0.0;
+			cBLUE = 0.0;
+			
+			fontName = matcher.group(1);
+			String id = this.addFontResource(fontName);
+			
+			/* Gestione dei colori */
+			if(matcher.group(3) != null) {
+				cRED = GRDimension.fromRGBToPDF(Integer.parseInt(matcher.group(4)));
+				cGREEN = GRDimension.fromRGBToPDF(Integer.parseInt(matcher.group(5)));
+				cBLUE = GRDimension.fromRGBToPDF(Integer.parseInt(matcher.group(6)));
+				
+			}
+				
+			/* Gestione del sottolineato */
+			if(matcher.group(7) != null) {
+				underline = matcher.group(7).substring(1);
+			} else {
+				underline = "none";
+			}
+			newValue = newValue + "["+id+":"+matcher.group(2)+":"+cRED+","+cGREEN+","+cBLUE+":"+underline+"]"+matcher.group(8);
 			
 		}
 		
@@ -879,6 +1083,10 @@ public class GRCompiler {
 			} else if(element.getName().equals("hposition")) {
 				hposition = element.getValue();
 			} else if(element.getName().equals("path")) {
+				File f = new File(element.getValue());
+				if(!f.exists())
+					return null;
+				
 				id = this.setImage(element.getValue());
 			} 
 			
@@ -926,7 +1134,7 @@ public class GRCompiler {
 			} else if(element.getName().equals("linespacing")) {
 				lineSpacing = GRDimension.getDocumentDimension(typography,element.getValue());
 			} else if(element.getName().equals("selectcase")) {
-				/* Per prima cosa istanzia l'oggetto. Questo perchè i vari
+				/* Per prima cosa istanzia l'oggetto. Questo perch�� i vari
 				 * condition genereranno ognuno un oggetto GRText con le 
 				 * caratteristiche dell'oggetto GRTextCondition
 				 */
@@ -993,6 +1201,13 @@ public class GRCompiler {
 		double widthStroke = 0.5;
 		String hposition = "absolute";
 		
+		double borderStroke = 0.0;
+		String valueLabel = "nothing";
+		String labelx = "hide";
+		String labely = "hide";
+		String barratio = "0.4";
+		String name = "";
+		
 		List children = el.getChildren();
 		Iterator iterator = children.iterator();
 		
@@ -1019,6 +1234,18 @@ public class GRCompiler {
 				hposition = element.getValue();
 			} else if(element.getName().equals("widthstroke")) {
 				widthStroke = Double.parseDouble(element.getValue());
+			} else if(element.getName().equals("borderstroke")) {
+				borderStroke = Double.parseDouble(element.getValue());
+			} else if(element.getName().equals("valuelabel")) {
+				valueLabel = element.getValue();
+			} else if(element.getName().equals("labelx")) {
+				labelx = element.getValue();
+			} else if(element.getName().equals("labely")) {
+				labely = element.getValue();
+			} else if(element.getName().equals("barratio")) {
+				barratio = element.getValue();
+			} else if(element.getName().equals("name")) {
+				name = element.getValue();
 			} else if(element.getName().equals("data")) {
 				/* Prima di procedere all'inserimento dei dati istanzia l'oggetto */
 				refChart = GRChart.createChart(typeChart, view);
@@ -1029,6 +1256,13 @@ public class GRCompiler {
 				refChart.setHeight(height);
 				refChart.setGap(gap);
 				refChart.setHPosition(hposition);
+				
+				refChart.setBorderStroke(borderStroke);
+				refChart.setValueLabel(valueLabel);
+				refChart.setLabelX(labelx);
+				refChart.setLabelY(labely);
+				refChart.setBarRatio(barratio);
+				refChart.setName(name);
 				
 				readDataChart(element, refChart);
 			}
@@ -1052,6 +1286,7 @@ public class GRCompiler {
 	private void readVoiceDataChart(Element el, GRChart refChart) {
 		String label = "";
 		double value = 0.0;
+		double colorstroke[] = null;
 		double color[] = null;
 		
 		List children = el.getChildren();
@@ -1065,12 +1300,18 @@ public class GRCompiler {
 				label = element.getValue();
 			} else if(element.getName().equals("value")) {
 				value = Double.parseDouble(element.getValue());
+			} else if(element.getName().equals("colorstroke")) {
+				colorstroke = this.getColorForPDF(element.getValue());
 			} else if(element.getName().equals("colorfill")) {
 				color = this.getColorForPDF(element.getValue());
 			}
 		}
 		
-		refChart.addVoice(label, value, color[0], color[1], color[2]);
+		if(colorstroke == null)
+			refChart.addVoice(label, value, color[0], color[1], color[2]);
+		else
+			refChart.addVoice(label, value, colorstroke[0],colorstroke[1],colorstroke[2],color[0], color[1], color[2]);
+		//refChart.addVoice(label, value, color[0], color[1], color[2]);
 	}
 	private GRGroup readGroup(Element el) {
 		double top = 0.0;
@@ -1091,7 +1332,7 @@ public class GRCompiler {
 				refGroup.setCondition(element.getValue());
 			} else if(element.getName().equals("content")) {
 				readContentGroup(element, refGroup);
-			}
+			} 
 		}
 		
 		refGroup.setTop(top);
@@ -1105,15 +1346,27 @@ public class GRCompiler {
 		while(iterator.hasNext()) {
 			Element element = (Element)iterator.next();
 			
-			if(element.getName().equals("shape")) {
+			if(element.getName().equals("shape") || element.getName().equals("grshape")) {
 				GRShape refShape = readShape(element);
 				
 				refGroup.addElement(refShape);
-			} else if(element.getName().equals("text")) {
+			} else if(element.getName().equals("image") || element.getName().equals("grimage")) {
+				GRImage refImage = readImage(element);
+				
+				refGroup.addElement(refImage);
+	
+			} else if(element.getName().equals("text") || element.getName().equals("grtext")) {
 				GRText refText = readText(element);
 				
 				refGroup.addElement(refText);
+			} else if(element.getName().equals("textcondition")) {
+				GRTextCondition refTextCondition = readTextCondition(element);
+				
+				refGroup.addElement(refTextCondition);
 			} else if(element.getName().equals("list")) {
+				GRList refList = readList(element);
+				
+				refGroup.addElement(refList);
 				/*refList = new GRList(typography);
 				readList(element);
 				
@@ -1278,7 +1531,7 @@ public class GRCompiler {
 			} else if(element.getName().equals("minheight")) {
 				minHeight = GRDimension.getDocumentDimension(typography,element.getValue());
 			} else if(element.getName().equals("column")) {
-				/* DEPRECATED. Mantiene compatibilità con vecchie versioni */
+				/* DEPRECATED. Mantiene compatibilit�� con vecchie versioni */
 				totColumns = Short.parseShort(element.getValue());
 			} else if(element.getName().equals("cell")) {
 				refTableListCell = readCellTableList(element);
@@ -1289,7 +1542,7 @@ public class GRCompiler {
 		}
 		
 		if(totColumns != -1)
-			numColumns = totColumns;	// Per compatibilità con vecchie versioni
+			numColumns = totColumns;	// Per compatibilit�� con vecchie versioni
 		
 		refTableList.setSectionColumn(numColumns, typeCell);
 		refTableList.setSectionMinHeight(minHeight, typeCell);
@@ -1323,6 +1576,10 @@ public class GRCompiler {
 				GRText refText = readText(element);
 				
 				refTableListCell.addObj(refText);
+			} else if(element.getName().equals("textcondition")) {
+				GRTextCondition refTextCondition = readTextCondition(element);
+				
+				refTableListCell.addObj(refTextCondition); 
 			} else if(element.getName().equals("image")) {
 				GRImage refImage = readImage(element);
 				
@@ -1357,7 +1614,7 @@ public class GRCompiler {
 				
 		return refTableListCell;
 	}
-	private GRBarcode readBarcode(Element el) {
+	private GRBarcode readBarcode(Element el) throws GRCompileTypeNotDefined {
 		double left = 0.0;
 		double top = 0.0;
 		double width = 0.0;
@@ -1392,6 +1649,10 @@ public class GRCompiler {
 		}
 		
 		refBarcode = GRBarcode.createBarcode(type);
+		
+		if(refBarcode == null)
+			throw new GRCompileTypeNotDefined(type);
+		
 		refBarcode.setLeft(left);
 		refBarcode.setTop(top);
 		refBarcode.setWidth(width);
@@ -1401,19 +1662,98 @@ public class GRCompiler {
 		
 		return refBarcode;
 	}
-	
+	private GRSystemObject readSystemObject(Element el) throws GRCompileTypeNotDefined {
+		List children = el.getChildren();
+		Iterator iterator = children.iterator();
+		
+		GRSystemObject refSysObj = null;
+		
+		while(iterator.hasNext()) {
+			Element element = (Element)iterator.next();
+			
+			if(element.getName().equals("type")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					if(element.getValue().equals("paginaNdiM")) {
+						refSysObj = getGRSysPaginaNdiM(iterator);
+					} 
+						
+				}
+				
+				if(refSysObj == null)
+					throw new GRCompileTypeNotDefined(element.getValue());
+			}
+		}
+		
+		
+		return refSysObj;
+	}
+	private GRSystemObject getGRSysPaginaNdiM(Iterator iterator) {
+		double left = 0.0;
+		double top = 0.0;
+		
+		double fontSize = 8.0;
+		double[] fontColor = null;
+		
+		String hposition = "absolute";
+		String language = "it";
+		String fontStyle = "";
+				
+		while(iterator.hasNext()) {
+			Element element = (Element)iterator.next();
+			
+			if(element.getName().equals("left")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					left = GRDimension.getDocumentDimension(typography,element.getValue());
+				} 
+			} else if(element.getName().equals("top")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					top = GRDimension.getDocumentDimension(typography,element.getValue());
+				}
+			} else if(element.getName().equals("fontsize")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					fontSize = Double.parseDouble(element.getValue());
+				}
+			} else if(element.getName().equals("fontcolor")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					fontColor = getColorForPDF(element.getValue());
+				}
+			} else if(element.getName().equals("language")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					language = element.getValue();
+				}
+			} else if(element.getName().equals("fontstyle")) {
+				if(((Element)element.getParent()).getName().equals("sysobject")) {
+					fontStyle = this.getTextFormat(element.getValue());
+				}
+			} 
+			
+		}
+		
+		GRSysPaginaNdiM refSys = new GRSysPaginaNdiM(fontStyle,language);
+		
+		refSys.setPosition(left,  top);
+		
+		
+		return refSys;
+	}
 	private double[] getColorForPDF(String value) {
 		double[] color = new double[3];
 		
-		String[] buffer = value.split(" ");
-		color[0] = GRDimension.fromRGBToPDF(Integer.parseInt(buffer[0]));
-		color[1] = GRDimension.fromRGBToPDF(Integer.parseInt(buffer[1]));
-		color[2] = GRDimension.fromRGBToPDF(Integer.parseInt(buffer[2]));
+		if(value.equals("transparent")) {
+			color[0] = -1;
+			color[1] = -1;
+			color[2] = -1;
+		} else {
+			String[] buffer = value.split(" ");
+			color[0] = GRDimension.fromRGBToPDF(Integer.parseInt(buffer[0]));
+			color[1] = GRDimension.fromRGBToPDF(Integer.parseInt(buffer[1]));
+			color[2] = GRDimension.fromRGBToPDF(Integer.parseInt(buffer[2]));
+		}
 		
 		return color;
 	}
 	private String addFontResource(String value) {
-		/* Verifica che il nome del font sia già stato censito
+		/* Verifica che il nome del font sia gi�� stato censito
 		 * Se ok ritorna il valore relativo all'ID
 		 * Se ko censisce il font e ritorna il nuovo id
 		 * 
@@ -1460,7 +1800,7 @@ public class GRCompiler {
 	}
 	
 	private String addImageResource(String pathImage) {
-		/* Verifica che l'immagine sia già stata censita
+		/* Verifica che l'immagine sia gi�� stata censita
 		 * Se ok ritorna il valore relativo all'ID
 		 * Se ko censisce l'immagine e ritorna il nuovo id
 		 * 
@@ -1506,6 +1846,25 @@ public class GRCompiler {
 		return id;
 	}
 	
+	private void insertSYSOBJECT(GRSystemObject grobj, RandomAccessFile rOut) throws IOException {
+		short typeObj = grobj.getType();
+		
+		rOut.writeShort(typeObj);
+		rOut.writeDouble(grobj.getLeft());
+		rOut.writeDouble(grobj.getTop());
+		rOut.writeShort(grobj.getHPosition());
+		
+		if(typeObj == GRSystemObject.TYPESYSOBJECT_PAGINANDIM) {
+			GRSysPaginaNdiM grsys = (GRSysPaginaNdiM)grobj;
+			
+			rOut.writeShort(grsys.getLanguage());
+			
+			rOut.writeInt(grsys.getFontStyle().length());
+			rOut.writeBytes(grsys.getFontStyle());
+			
+		}
+		rOut.writeLong(0);	// Address extended property - not used
+	}
 	private void insertSHAPE(GRObject grobj, RandomAccessFile rOut) throws IOException {
 		GRShape grshape = (GRShape)grobj;
 		short typeShape = grshape.getTypeShape();
@@ -1530,7 +1889,7 @@ public class GRCompiler {
 			rOut.writeDouble(grrect.getWidth());
 			rOut.writeDouble(grrect.getHeight());
 			
-			// Colore di riempimento. Se -1 sarà trasparente
+			// Colore di riempimento. Se -1 sar�� trasparente
 			rOut.writeDouble(grrect.getColorFillRED());
 			rOut.writeDouble(grrect.getColorFillGREEN());
 			rOut.writeDouble(grrect.getColorFillBLUE());
@@ -1556,7 +1915,7 @@ public class GRCompiler {
 			
 			rOut.writeDouble(grcircle.getRadius());
 			
-			// Colore di riempimento. Se -1 sarà trasparente
+			// Colore di riempimento. Se -1 sar�� trasparente
 			rOut.writeDouble(grcircle.getColorFillRED());
 			rOut.writeDouble(grcircle.getColorFillGREEN());
 			rOut.writeDouble(grcircle.getColorFillBLUE());
@@ -1576,8 +1935,13 @@ public class GRCompiler {
 		rOut.writeShort(grchart.getView());
 		rOut.writeInt(grchart.getGap());
 		
-		rOut.writeShort(0);	// Al momento non è gestita la legenda
-		rOut.writeInt(0);	// Al momento non è gestita la possibilità di dati dinamici
+		rOut.writeShort(0);	// Al momento non �� gestita la legenda
+		
+		String name = grchart.getName();
+		rOut.writeInt(name.length());
+		if(name.length() > 0)
+			rOut.writeBytes(name);
+		//rOut.writeInt(0);	// Al momento non �� gestita la possibilit�� di dati dinamici
 		
 		rOut.writeInt(grchart.getTotaleDataVoice());
 		if(grchart.getTotaleDataVoice() > 0) {
@@ -1590,12 +1954,31 @@ public class GRCompiler {
 				rOut.writeBytes(grvoice.getLabel());
 				rOut.writeDouble(grvoice.getValue());
 				
+				rOut.writeDouble(grvoice.getColorStrokeRED());
+				rOut.writeDouble(grvoice.getColorStrokeGREEN());
+				rOut.writeDouble(grvoice.getColorStrokeBLUE());
+				
 				rOut.writeDouble(grvoice.getColorFillRED());
 				rOut.writeDouble(grvoice.getColorFillGREEN());
 				rOut.writeDouble(grvoice.getColorFillBLUE());
 			}
 		}
 		
+		rOut.writeLong(1);  /*
+		 					 * Fino alla 1.31 valeva 0. Nuove proprietà aggiunte
+							 *
+							 * Nuove proprietà:
+							 * -borderstroke
+							 * -valueLabel
+							 * 
+							 */
+		rOut.writeDouble(grchart.getBorderStroke());
+		rOut.writeShort(grchart.getValueLabel());
+		rOut.writeShort(grchart.getLabelX());
+		rOut.writeShort(grchart.getLabelY());
+		rOut.writeDouble(grchart.getBarRatio());
+		
+		// Chiusura
 		rOut.writeLong(0);	// Address extended property - not used
 		
 	}
@@ -1682,6 +2065,8 @@ public class GRCompiler {
 				this.insertSHAPE(grcontext.getElement(i),rOut);
 			} else if(type == GRObject.TYPEOBJ_LIST) {
 				this.insertLIST(grcontext.getElement(i), rOut);
+			} else if(type == GRObject.TYPEOBJ_TEXTCONDITION) {
+				this.insertTEXTCONDITION(grcontext.getElement(i),rOut);
 			}
 		}
 	}
@@ -1869,11 +2254,13 @@ public class GRCompiler {
 							
 					if(type == GRObject.TYPEOBJ_TEXT) {
 						this.insertTEXT(refCell.getElement(nCell),rOut);
+					} else if(type == GRObject.TYPEOBJ_TEXTCONDITION) {
+						this.insertTEXTCONDITION(refCell.getElement(nCell),rOut);
 					} else if(type == GRObject.TYPEOBJ_IMAGE) {
 						this.insertIMAGE(refCell.getElement(nCell),rOut);
 					} else if(type == GRObject.TYPEOBJ_SHAPE) {
 						this.insertSHAPE(refCell.getElement(nCell),rOut);
-					}
+					} 
 				}
 				
 				nCol++;

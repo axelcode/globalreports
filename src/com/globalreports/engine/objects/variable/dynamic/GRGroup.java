@@ -56,6 +56,7 @@ import com.globalreports.engine.err.GRTextConditionException;
 import com.globalreports.engine.err.GRValidateException;
 import com.globalreports.engine.objects.GRObject;
 import com.globalreports.engine.objects.variable.GRText;
+import com.globalreports.engine.objects.variable.GRVariableObject;
 import com.globalreports.engine.structure.GRMeasures;
 import com.globalreports.engine.structure.grbinary.data.GRParser;
 import com.globalreports.engine.structure.grpdf.GRContext;
@@ -157,19 +158,28 @@ public class GRGroup extends GRDynamicObject {
 			int indexElement = 0;
 			
 			while(indexElement < this.getTotaleElement()) {
-				
 				GRObject refObj = this.getElement(indexElement);
 				
 				short type = refObj.getType();
 				Vector<String> streamObj;
 				
-				if(type == GRObject.TYPEOBJ_TEXT) {
+				if(type == GRObject.TYPEOBJ_TEXT || type == GRObject.TYPEOBJ_LIST || type == GRObject.TYPEOBJ_TEXTCONDITION) {
+					/*
 					GRText grtext = (GRText)refObj;
 					grtext.setData(grdata);
+					*/
+					GRVariableObject grvar = (GRVariableObject)refObj;
+					grvar.setData(grdata);
 					
 				} 
 				
+				if(refObj instanceof GRDynamicObject) {
+					GRDynamicObject grvar = (GRDynamicObject)refObj;
+					grvar.setPage(grpage);
+				}
+				
 				streamObj = refObj.draw(contextGroup);
+				
 				content.append(streamObj.get(0));
 				
 				if(maxHeight < (refObj.getTop() + refObj.getMaxHeight()))
@@ -195,6 +205,7 @@ public class GRGroup extends GRDynamicObject {
 						
 			// Il contesto lo aggiorna solamente se il contenuto grafico è stato renderizzato
 			grcontext.setHPosition(top - maxHeight);
+			
 		} 
 		
 		stream.add(content.toString());

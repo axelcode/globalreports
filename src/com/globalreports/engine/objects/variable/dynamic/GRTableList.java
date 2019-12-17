@@ -56,6 +56,7 @@ import com.globalreports.engine.err.GRValidateException;
 import com.globalreports.engine.objects.GRObject;
 import com.globalreports.engine.objects.GRShape;
 import com.globalreports.engine.objects.variable.GRText;
+import com.globalreports.engine.objects.variable.GRTextCondition;
 import com.globalreports.engine.objects.variable.dynamic.tablelist.GRTableListCell;
 import com.globalreports.engine.objects.variable.dynamic.tablelist.GRTableListColumn;
 import com.globalreports.engine.objects.variable.dynamic.tablelist.GRTableListRecord;
@@ -415,6 +416,7 @@ public class GRTableList extends GRDynamicObject {
 		// FOOT
 		recordFOOT = getStreamSection(grcontext, top, grtablelistFooter);
 		if((top-recordFOOT.getHeight()) < (grcontext.getTop() - grcontext.getHeight())) {
+			
 			// Salto pagina
 			stream.add(recordHEAD.getContentStream() + TBODY.toString());
 			
@@ -423,10 +425,12 @@ public class GRTableList extends GRDynamicObject {
 			
 			// Rigenera l'Header
 			recordFOOT = getStreamSection(grcontext, top, grtablelistFooter);
+			stream.add(recordFOOT.getContentStream());
 		}
 		top = top - recordFOOT.getHeight();
 		
 		stream.add(recordHEAD.getContentStream() + TBODY.toString() + recordFOOT.getContentStream());
+		//stream.add(recordFOOT.getContentStream());
 		
 		grcontext.setHPosition(top);	// Aggiorna il contesto grafico
 
@@ -486,7 +490,7 @@ public class GRTableList extends GRDynamicObject {
 				
 				short type = refObj.getType();
 				Vector<String> streamObj;
-				
+			
 				if(type == GRObject.TYPEOBJ_TEXT) {
 					
 					GRText refText = (GRText)refObj;
@@ -502,7 +506,23 @@ public class GRTableList extends GRDynamicObject {
 					if(refText.getTop()+refText.getMaxHeight()+refCell.getMarginTop()+refCell.getMarginBottom() > heightSection) {
 						heightSection = refText.getTop()+refText.getMaxHeight()+refCell.getMarginTop()+refCell.getMarginBottom();
 					}
+				} else if(type == GRObject.TYPEOBJ_TEXTCONDITION) {
 					
+					GRTextCondition refTextCondition = (GRTextCondition)refObj;
+					refTextCondition.setData(grdata);
+					
+					if(refTextCondition.getWidth() > dimCell)
+						refTextCondition.setWidth(dimCell); 	// Se la larghezza del testo eccede quella della cella
+													// la adatta automaticamente
+					
+					streamObj = refTextCondition.draw(contextCell);
+					if(streamObj.size() > 0) {
+						record.addData(streamObj.get(0));
+					
+						if(refTextCondition.getTop()+refTextCondition.getMaxHeight()+refCell.getMarginTop()+refCell.getMarginBottom() > heightSection) {
+							heightSection = refTextCondition.getTop()+refTextCondition.getMaxHeight()+refCell.getMarginTop()+refCell.getMarginBottom();
+						}
+					}
 				} else if(type == GRObject.TYPEOBJ_SHAPE) {
 					GRShape refShape = (GRShape)refObj;
 					

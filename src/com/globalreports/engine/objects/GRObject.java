@@ -83,6 +83,8 @@ public abstract class GRObject {
 	public GRObject(short type, String typography) {
 		this.type = type;
 		this.typography = typography;
+		
+		this.hposition = HPOSITION_ABSOLUTE;
 	}
 	
 	public short getType() {

@@ -53,16 +53,23 @@ import java.util.Vector;
 
 import com.globalreports.engine.err.GRBarcodeException;
 import com.globalreports.engine.err.GRValidateException;
+import com.globalreports.engine.objects.GRImage;
 import com.globalreports.engine.objects.GRObject;
+import com.globalreports.engine.objects.GRSystemObject;
 import com.globalreports.engine.objects.variable.GRText;
 import com.globalreports.engine.objects.variable.GRVariableObject;
 import com.globalreports.engine.objects.variable.dynamic.GRDynamicObject;
+import com.globalreports.engine.objects.variable.dynamic.GRTableList;
 import com.globalreports.engine.structure.grbinary.data.GRData;
 import com.globalreports.engine.structure.grpdf.GRContext;
 
 public class GRPage {
 	public static final String TYPOGRAPHY_MILLIMETERS			= "MM";
 	public static final String TYPOGRAPHY_POSTSCRIPT			= "PS";
+	
+	public static final int SECTION_PAGE_HEADER					= 1;
+	public static final int SECTION_PAGE_BODY					= 2;
+	public static final int SECTION_PAGE_FOOTER					= 3;
 	
 	/* Header */
 	private double width;
@@ -76,12 +83,17 @@ public class GRPage {
 	
 	protected StringBuffer content;
 	
+	/* Template associato alla pagina. Possono essere anche più di uno */
+	private Vector<String> template;
+	
 	/* Riferimento al document per accedere alle risorse esterne alla Page */
 	protected GRDocument grdoc;
 	private Vector<GRObject> grHeadObj;
 	private Vector<GRObject> grobj;
 	private Vector<GRObject> grFootObj;
 	
+	/* Riferimento ai sysobj */
+	private Vector<GRSystemObject> grsysBodyObj;
 	/*
 	protected Vector<GRImage> grimage;
 	protected Vector<GRShape> grshape;
@@ -119,8 +131,12 @@ public class GRPage {
 		marginRight = 0.0;
 		
 		grHeadObj = null;
-		grobj = null;
+		grobj = new Vector<GRObject>();
 		grFootObj = null;
+		
+		grsysBodyObj = null;
+		
+		template = null;
 		
 		content = new StringBuffer();
 	}
@@ -134,7 +150,24 @@ public class GRPage {
 	public Vector<GRObject> getFooterObject() {
 		return grFootObj;
 	}
-	
+	public Vector<GRSystemObject> getSystemObject() {
+		return grsysBodyObj;
+	}
+	public  void setTemplate(String name) {
+		if(template == null)
+			template = new Vector<String>();
+		
+		/* Verifica che non ci sia già un template avente lo stesso nome */
+		for(int i = 0;i < template.size();i++) {
+			if(template.get(i).equals(name))
+				return;
+		}
+		
+		template.add(name);
+	}
+	public Vector<String> getTemplate() {
+		return template;
+	}
 	public void setWidth(double value) {
 		width = value;
 	}
@@ -189,6 +222,13 @@ public class GRPage {
 			grFootObj = new Vector<GRObject>();
 		
 		grFootObj.add(obj);
+	}
+	public void addSysObj(GRSystemObject obj, int section) {
+		/* 19/05/2017: Al momento i Sysobj vengono gestiti solamente nel body */
+		if(grsysBodyObj == null)
+			grsysBodyObj = new Vector<GRSystemObject>();
+		
+		grsysBodyObj.add(obj);
 	}
 	
 	public Vector<String> getContentStream(GRData grdata) throws GRValidateException, GRBarcodeException {
@@ -261,11 +301,14 @@ public class GRPage {
 				if(refObj instanceof GRVariableObject) {
 					GRVariableObject grvariable = (GRVariableObject)refObj;
 					grvariable.setData(grdata);
+					
 				}
 				if(refObj instanceof GRDynamicObject) {
 					((GRDynamicObject) refObj).setPage(this);
 				}
-				
+				if(refObj instanceof GRImage) {
+					((GRImage) refObj).setPage(this);
+				}
 				Vector<String> streamBODY = refObj.draw(grcontextBody);
 				
 				if(streamBODY.size() > 0) {
@@ -274,9 +317,26 @@ public class GRPage {
 					if(streamBODY.size() > 1) {
 						for(int index = 1;index < streamBODY.size();index++) {
 							// Page Break
+							
+							// Verifica sugli oggetti di sistema
+							/*
+							if(grsysBodyObj != null) {
+								if(grsysBodyObj.size() > 0)
+									contentBODY.append("BT\n510.0 75.0 Td\n/f1 7.0 Tf\n0.0 0.0 0.0 rg\n[(Pagina n di M)] TJ\nET\n");
+								
+							}
+							*/
+							
+							// TEMPLATE
+							content.append(getStreamTemplate(grdata, GRTemplate.POSITION_UNDER));
+							
 							content.append(contentHEAD.toString());
 							content.append(contentBODY.toString());
 							content.append(contentFOOT.toString());
+							
+							content.append(getStreamTemplate(grdata, GRTemplate.POSITION_OVER));
+							
+							
 							stream.add(content.toString());
 							
 							content.setLength(0);
@@ -288,15 +348,48 @@ public class GRPage {
 				
 				
 			}
+		
+			// Verifica sugli oggetti di sistema
+			/*
+			if(grsysBodyObj != null) {
+				if(grsysBodyObj.size() > 0)
+					contentBODY.append("BT\n510.0 75.0 Td\n/f1 7.0 Tf\n0.0 0.0 0.0 rg\n[(Pagina n di M)] TJ\nET\n");
+				
+			}
+			*/
 		}
+		content.append(getStreamTemplate(grdata, GRTemplate.POSITION_UNDER));
 		
 		content.append(contentHEAD.toString());
 		content.append(contentBODY.toString());
 		content.append(contentFOOT.toString());
 		
+		content.append(getStreamTemplate(grdata, GRTemplate.POSITION_OVER));
+		
 		stream.add(content.toString());
 		
 		return stream;
+		
+	}
+	
+	private String getStreamTemplate(GRData grdata, short position) throws GRValidateException, GRBarcodeException {
+		StringBuffer templateStream = new StringBuffer();
+		
+		if(template == null)
+			return "";
+		
+		for(int i = 0;i < template.size();i++) {
+			String nameTemplate = template.get(i);
+			
+			short templatePosition = grdoc.getTemplatePosition(nameTemplate);
+			
+			if(templatePosition == position) {
+				templateStream.append(grdoc.getTemplateStream(nameTemplate, grdata));
+			}
+				
+		}
+
+		return templateStream.toString();
 		
 	}
 }

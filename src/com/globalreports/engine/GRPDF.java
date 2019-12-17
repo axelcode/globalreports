@@ -50,12 +50,16 @@
 package com.globalreports.engine;
 
 import java.io.*;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.Vector;
 
 import com.globalreports.compiler.GRCompiler;
 import com.globalreports.engine.err.*;
 import com.globalreports.engine.filter.GRFlateDecode;
+import com.globalreports.engine.objects.GRSystemObject;
 import com.globalreports.engine.structure.grbinary.GRDocument;
+import com.globalreports.engine.structure.grbinary.GRGlobalPDF;
 import com.globalreports.engine.structure.grbinary.GRLayout;
 import com.globalreports.engine.structure.grbinary.data.GRData;
 import com.globalreports.engine.structure.grpdf.GRPDFFile;
@@ -67,7 +71,7 @@ public class GRPDF {
 	/**
 	 * Il nome della libreria con il relativo copyright
 	 */
-	public static final String 	GR_PRODUCER			= "Global Reports (C) 2015-2016";
+	public static final String 	GR_PRODUCER			= "Global Reports (C) 2015-2018";
 	/**
 	 * Il numero di versione relativo al rilascio corrente
 	 */
@@ -75,9 +79,11 @@ public class GRPDF {
 	/**
 	 * Il numero di versione relativo al rilascio corrente
 	 */
-	public static final int		GR_VERSION_MINOR	= 2;
+	public static final int		GR_VERSION_MINOR	= 31;
 
 	public static final int		GR_VERSION_BETAVERSION = 1;
+	
+	private GRGlobalPDF grglobal;			// Oggetto globale che rappresenta la sessione corrente;
 	
 	private GRLayout grlayout;				// Rappresenta il layout in formato GRB
 	private GRData grdata;					// Rappresenta il file xml contenente i dati variabili
@@ -85,7 +91,14 @@ public class GRPDF {
 	private GRPDFFile pdfAttach;			// Un oggetto che contiene tutti i pdf che si
 											// vogliono aggiungere in coda al pdf generato
 											// da GlobalReports
+	private GRPDFFile pdfAttachXml;			// Contiene i PDF da allegare che
+											// vengono specificati a runtime
+											// nell'xml data
+	
+	public static String GR_TITLE;
+	public static String GR_AUTHOR;
 	public static String GR_CREATOR;
+	
 	
 	/** 
 	 * Crea un oggetto <i>GlobalReports Engine</i> per la generazione di files .PDF
@@ -94,6 +107,15 @@ public class GRPDF {
 		GR_CREATOR = null;
 		
 		pdfAttach = null;
+		grglobal = null;
+		
+	}
+	private synchronized void appendPDFXml(String pathPDF) throws GRAttachmentException {
+		if(pdfAttachXml == null)
+			pdfAttachXml = new GRPDFFile();
+		
+		pdfAttachXml.appendPDF(pathPDF);
+			
 	}
 	/**
 	 * Aggiunge un allegato in formato PDF, da inserire in coda al PDF generato
@@ -116,6 +138,22 @@ public class GRPDF {
 		pdfAttach = null;
 	}
 	/**
+	 * Imposta il titolo da dare al documento PDF. Questo comparirà nella finestra <i>Proprietà</i> sotto la voce <b>Titolo</b>
+	 * 
+	 * @param value Il titolo da associare al PDF.
+	 */
+	public void setTitle(String value) {
+		GR_TITLE = value;
+	}
+	/**
+	 * Imposta il nome del proprietario del documento PDF. Questo comparirà nella finestra <i>Proprietà</i> sotto la voce <b>Autore</b>
+	 * 
+	 * @param value Il nome del proprietario del documento PDF.
+	 */
+	public void setAuthor(String value) {
+		GR_AUTHOR = value;
+	}
+	/**
 	 * Imposta il nome dell'applicazione del file all'interno delle proprietà del PDF. Questo comparirà nella finestra <i>Proprietà</i> sotto la voce <b>Applicazione</b>
 	 * 
 	 * @param value Il nome dell'applicazione da associare alla creazione del file.
@@ -134,6 +172,25 @@ public class GRPDF {
 		
 	}
 	
+	public synchronized void clearResources() {
+		System.out.println(grlayout);
+	}
+	private int allegaDaXml(String pathPDF) throws GRAttachmentException, GRPdfPathNotFoundException, GRPdfIOWriteException {
+		
+		if(pdfAttachXml == null)
+			return -1;
+		
+		// Genera un vector temporaneo
+		GRPDFFile pdfTemp = new GRPDFFile();
+		pdfTemp.appendPDF(pathPDF);
+		for(int i = 0;i < pdfAttachXml.getNumFiles();i++) {
+			pdfTemp.appendGRPDFReader(pdfAttachXml.getGRPDFReader(i));
+		}
+		
+		int pagineFinali = pdfTemp.mergePDF(pathPDF);
+		
+		return pagineFinali;
+	}
 	private int allega(String pathPDF) throws GRAttachmentException, GRPdfPathNotFoundException, GRPdfIOWriteException {
 		if(pdfAttach == null)
 			return -1;
@@ -165,6 +222,8 @@ public class GRPDF {
 							// 1: /Type/Catalog
 							// 2: /Type/Pages
 		
+		
+		grglobal = new GRGlobalPDF();	// Istanzia l'oggetto di sistema
 		
 		try {
 			// Se il file esiste lo cancella
@@ -350,13 +409,20 @@ public class GRPDF {
 					
 					totalePaginePdf++;
 				}
+				
+				//page.setGRSystemObject(grdocument.getSystemObject(i));
+				page.setGRSystemObject(grdocument.getSystemObject(i), grdocument.getPageWidth(i),grdocument.getPageHeight(i));
+				
 				contentStream.add(page);
+				
 			}
+			grglobal.setPagineTotale(totalePaginePdf);
 			
 			// Adesso cicla per tutte le pagine acquisite e le inserisce nel documento
 			for(int i = 0;i < contentStream.size();i++) {
 				GRPageStream page = contentStream.get(i);
 				for(int v = 0;v < page.getPage();v++) {
+					grglobal.increasesCurrentPage();
 					
 					// Prima inserisce i contenuti e poi /Type/Page
 					// Content stream
@@ -376,8 +442,18 @@ public class GRPDF {
 					} else {
 						/* FLATEDECODE */
 						
+						/* Gestione degli oggetti di sistema */
+						Vector<GRSystemObject> grsys = page.getGRSystemObjec();
+						if(grsys != null) {
+							for(int gi = 0;gi < grsys.size();gi++) {
+								streamPage = streamPage + grsys.get(gi).draw(grglobal);
+								
+							}
+						}
+							
 						//streamPage = streamPage + "BT\n510.0 75.0 Td\n/f1 7.0 Tf\n0.0 0.0 0.0 rg\n[(Pagina "+paginaCorrente+" di "+totalePaginePdf+")] TJ\nET\n";
-						
+						//streamPage = streamPage + "1 0 0 1 28.0 0 Tm\n";
+						//System.out.println("STREAM: "+streamPage);
 						byte[] bStream =  GRFlateDecode.encode(streamPage.getBytes());
 						
 						//byte[] bStream =  GRFlateDecode.encode(contentStream.get(v).getBytes());
@@ -400,6 +476,9 @@ public class GRPDF {
 					rPdf.writeBytes("<</Type/Page\n");
 					rPdf.writeBytes("/Parent 2 0 R\n");	// L'indirizzo 2 è fisso
 					rPdf.writeBytes("/MediaBox[0 0 "+page.getPageWidth()+" "+page.getPageHeight()+"]\n");
+					//rPdf.writeBytes("/TrimBox[0 0 195.27 241.88]\n");
+					//rPdf.writeBytes("/CropBox[0 0 195.27 241.88]\n");
+					
 					rPdf.writeBytes("/Contents "+pointerContentStream+" 0 R\n");
 					rPdf.writeBytes("/Resources <</Font <<"+addressFonts+">> ");
 					if(grdocument.getTotaleImage() > 0)
@@ -438,9 +517,38 @@ public class GRPDF {
 			numberObj++;
 						
 			rPdf.writeBytes("<<\n");
+			
+			if(GR_TITLE != null)
+				rPdf.writeBytes("/Title("+GR_TITLE+")\n");
+			if(GR_AUTHOR != null)
+				rPdf.writeBytes("/Author("+GR_AUTHOR+")\n");
 			rPdf.writeBytes("/Producer("+GR_PRODUCER+" - v"+GR_VERSION_MAJOR+"."+GR_VERSION_MINOR+")\n");
 			if(GR_CREATOR != null)
 				rPdf.writeBytes("/Creator("+GR_CREATOR+")\n");
+			
+			// Impostazione della data di creazione del documento
+			Calendar calendar = new GregorianCalendar();
+			StringBuffer dataCreazione = new StringBuffer();
+			dataCreazione.append("D:");
+			dataCreazione.append(calendar.get(Calendar.YEAR));
+			if((calendar.get(Calendar.MONTH)+1) < 10)
+				dataCreazione.append("0");
+			dataCreazione.append((calendar.get(Calendar.MONTH)+1));
+			if(calendar.get(Calendar.DAY_OF_MONTH) < 10)
+				dataCreazione.append("0");
+			dataCreazione.append(calendar.get(Calendar.DAY_OF_MONTH));
+			if(calendar.get(Calendar.HOUR_OF_DAY) < 10)
+				dataCreazione.append("0");
+			dataCreazione.append(calendar.get(Calendar.HOUR_OF_DAY));
+			if(calendar.get(Calendar.MINUTE) < 10)
+				dataCreazione.append("0");
+			dataCreazione.append(calendar.get(Calendar.MINUTE));
+			if(calendar.get(Calendar.SECOND) < 10)
+				dataCreazione.append("0");
+			dataCreazione.append(calendar.get(Calendar.SECOND));
+			dataCreazione.append("+02'00'");
+			rPdf.writeBytes("/CreationDate("+dataCreazione.toString()+")\n");
+			
 			rPdf.writeBytes(">>\n");
 			
 			rPdf.writeBytes("endobj\n");
@@ -461,7 +569,7 @@ public class GRPDF {
 			// END PDF
 			rPdf.writeBytes("%%EOF");
 			rPdf.close();
-						
+							
 			return totalePaginePdf;
 			
 		} catch(FileNotFoundException fnfe) {
@@ -557,6 +665,26 @@ public class GRPDF {
 				totalePagine = pagineFinali;
 		}
 		
+		// Gestione degli allegati da xml
+		if(grdata != null) {
+			Vector<String> attachedList = grdata.getAttachedList();
+			if(attachedList != null) {
+				for(int i = 0;i < attachedList.size();i++) {
+					try {
+						appendPDFXml(attachedList.get(i));
+					} catch(Exception e) {
+						
+					}	// Se non trova il file prosegue
+				}
+			}
+			
+			int pagineFinali2 = allegaDaXml(namePDF);
+			if(pagineFinali2 != -1)
+				totalePagine = pagineFinali2;
+			
+			pdfAttachXml = null;
+		}
+		
 		return totalePagine;
 		
 		//return this.writePDF(namePDF, allega);
@@ -599,6 +727,7 @@ public class GRPDF {
 		
 		int totalePagine = generaPDF(namePDF);
 		
+		// Gestione degli allegati da codice
 		if(allega) {
 			int pagineFinali = allega(namePDF);
 			
@@ -606,21 +735,60 @@ public class GRPDF {
 				totalePagine = pagineFinali;
 		}
 		
+		// Gestione degli allegati da xml
+		if(grdata != null) {
+			Vector<String> attachedList = grdata.getAttachedList();
+			if(attachedList != null) {
+				for(int i = 0;i < attachedList.size();i++) {
+					try {
+						appendPDFXml(attachedList.get(i));
+					} catch(Exception e) {}	// Se non trova il file prosegue
+				}
+			}
+			
+			int pagineFinali2 = allegaDaXml(namePDF);
+			if(pagineFinali2 != -1)
+				totalePagine = pagineFinali2;
+			
+			pdfAttachXml = null;
+		}
+		
 		return totalePagine;
 		
 		//return this.writePDF(namePDF, allega);
 	
 	}
-	
-	public synchronized int compile(String nameFileGR) throws GRCompileException {
+	/** Genera un file GRB partendo da un file GRX di cui il percorso viene passato come membro del metodo.
+	 * 
+	 * @param nameFileGR Il nome del file GRX sorgente da cui dovrà essere ricavato il file GRB binario
+	 * @return Il nome del file GRB compilato, comprensivo di estensione
+	 * @throws GRCompileException
+	 */
+	public synchronized String compile(String nameFileGR) throws GRCompileException {
+		return this.compile(nameFileGR, null);
+		
+	}
+	/** Genera un file GRB partendo da un file GRX di cui il percorso viene passato come membro del metodo.
+	 *  Questa viene usata quando si desidera ottenere un file compilato con un nome predefinito. Se viene utilizzato questo metodo
+	 *  il valore all'interno del tag <namedocument> del file grx viene ignorato.
+	 *  
+	 * @param nameFileGR Il nome del file GRX sorgente da cui dovrà essere ricavato il file GRB binario
+	 * @param nameFileGRB Il nome del file GRB compilato da utilizzare come layout
+	 * @return Il nome del file GRB compilato, comprensivo di estensione
+	 * @throws GRCompileException
+	 */
+	public synchronized String compile(String nameFileGR, String nameFileGRB) throws GRCompileException {
 		GRCompiler compiler = new GRCompiler(nameFileGR);
 		
-		compiler.compile();
-		compiler.writeGRB();
+		if(nameFileGRB == null)
+			compiler.compile();
+		else
+			compiler.compile(nameFileGRB);
 		
-		return 0;
+		String nameGrb = compiler.writeGRB();
+		
+		return nameGrb;
 	}
-	
 	private void clear(RandomAccessFile raf, String namePDF) {
 		if(raf == null)
 			return;

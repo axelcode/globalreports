@@ -1,6 +1,6 @@
 /*
  * ==========================================================================
- * class name  : com.globalreports.engine.objects.text.GRParagraph
+ * class name  : com.globalreports.engine.structure.font.system.GRArial
  * 
  * Begin       : 
  * Last Update : 
@@ -47,99 +47,45 @@
  * which carries forward this exception.
  * 
  */
-package com.globalreports.engine.objects.variable.text;
+package com.globalreports.engine.structure.font.system;
 
-public class GRTextRowParagraph {
-	private String value;
-	private String fontId;
-	private double fontSize;
-	private int fontAscent;
-	private double colorRED;
-	private double colorGREEN;
-	private double colorBLUE;
-	private int blank;
-	private double widthBlank;
-	private double width;
-	private boolean underline;
+public class GRArial {
+	private static final int[] widthFont = {
+		278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
+		1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
+		333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 750,
+		556, 750, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 750, 611, 750, 750, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 750, 500, 667,
+		278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 552, 400, 549, 333, 333, 333, 576, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611,
+		667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
+		556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, 556, 556, 556, 556, 556, 556, 556, 549, 611, 556, 556, 556, 556, 500, 556, 500
+	};
 	
-	private double gapAdjustment;	// E' la quantità di spazio aggiuntivo
-									// che viene inserito in fase di rendering
-									// della stringa per ottenere l'allineamento
-									// specificato
-	
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE, String valueUnderline) {
-		this.fontId = fontId;
-		this.fontSize = fontSize;
-		this.fontAscent = fontAscent;
-		this.colorRED = cRED;
-		this.colorGREEN = cGREEN;
-		this.colorBLUE = cBLUE;
+	public static int getCharacterWidth(char c) {
+		int indexChar = (int)c;
 		
-		blank = 0;
-		width = 0.0;
+		indexChar -= 32;
 		
-		if(valueUnderline.equals("underline"))
-			underline = true;
-		else
-			underline = false;
-	}
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE) {
-		this(fontId, fontSize, fontAscent, cRED, cGREEN, cBLUE, "none");
-	}
-	public void setValue(String value) {
-		this.value = value;
-	}
-	public String getValue() {
-		return value;
-	}
-	public void setWidth(double width) {
-		this.width = width;
-	}
-	public double getWidth() {
-		return width;
-	}
-	public void setWidthBlank(double value) {
-		this.widthBlank = value;
-	}
-	public double getWidthBlank() {
-		return widthBlank;
-	}
-	public void addBlank() {
-		blank++;
-	}
-	public int getBlank() {
-		return blank;
+		return widthFont[indexChar];
 	}
 	
-	public String getFontId() {
-		return fontId;
+	public static int getCharacterWidth(String c) {
+		if(c == null)
+			return -1;
+		
+		if(c.equals(""))
+			return -2;
+		
+		return getCharacterWidth(c.charAt(0));
+		
 	}
-	public double getFontSize() {
-		return fontSize;
-	}
-	public int getFontAscent() {
-		return fontAscent;
-	}
-	public double getRED() {
-		return colorRED;
-	}
-	public double getGREEN() {
-		return colorGREEN;
-	}
-	public double getBLUE() {
-		return colorBLUE;
-	}
-	public boolean getUnderline() {
-		return underline;
-	}
-	public void setGapAdjustment(double value) {
-		gapAdjustment = value;
-	}
-	public void addGapAdjustment(double value) {
-		gapAdjustment += value;
-	}
-	public double getGapAdjustment() {
-		return gapAdjustment;
+	
+	public static double getStringWidth(String value, double fontSize) {
+		double dim = 0.0;
+		
+		for(int i = 0;i < value.length();i++) {
+			dim = dim + (getCharacterWidth(value.charAt(i)) * fontSize);
+		}
+		
+		return dim;
 	}
 }
-

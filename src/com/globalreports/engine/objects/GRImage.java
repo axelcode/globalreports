@@ -52,6 +52,7 @@ package com.globalreports.engine.objects;
 import java.util.Vector;
 
 import com.globalreports.engine.structure.GRMeasures;
+import com.globalreports.engine.structure.grbinary.GRPage;
 import com.globalreports.engine.structure.grpdf.GRContext;
 
 public class GRImage extends GRObject {
@@ -60,6 +61,11 @@ public class GRImage extends GRObject {
 	private double width;
 	private double height;
 	private String id;
+	
+	protected GRPage grpage;
+	public void setPage(GRPage grpage) {
+		this.grpage = grpage;
+	}
 	
 	public GRImage() {
 		super(GRObject.TYPEOBJ_IMAGE);
@@ -126,7 +132,22 @@ public class GRImage extends GRObject {
 		} else {
 			top = GRMeasures.arrotonda(grcontext.getHPosition() - this.getTop() - this.getHeight());
 		}
+
+		/*
+		if(grpage != null) {
+			if(top - maxHeight - grpage.getFooter() < 0) {
+				stream.add("");	// Salto pagina
+				
+				maxHeight = 0.0;
+				content.setLength(0);
+				
+				top = GRMeasures.arrotonda(grcontext.getTop());
+			}
+		}
+		*/
 		
+		
+		//if(top - maxHeight - grpage.getFooter() < 0) {
 		// Disegna lo stream
 		content.append("q\n");
 		content.append(this.getWidth()+" 0 0 "+this.getHeight()+" "+left+" "+top+" cm\n");

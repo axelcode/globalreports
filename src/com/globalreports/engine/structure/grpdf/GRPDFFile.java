@@ -57,8 +57,17 @@ import java.util.Vector;
 
 import com.globalreports.engine.GRPDF;
 import com.globalreports.engine.err.GRAttachmentException;
+import com.globalreports.engine.err.GRAttachmentFileNotFoundException;
+import com.globalreports.engine.err.GRAttachmentIOReadException;
+import com.globalreports.engine.err.GRAttachmentPageNotExists;
+import com.globalreports.engine.err.GRCompileException;
+import com.globalreports.engine.err.GRException;
+import com.globalreports.engine.err.GRLayoutException;
 import com.globalreports.engine.err.GRPdfIOWriteException;
 import com.globalreports.engine.err.GRPdfPathNotFoundException;
+import com.globalreports.engine.objects.GRRectangle;
+import com.globalreports.engine.objects.GRShape;
+import com.globalreports.engine.structure.GRMeasures;
 
 public class GRPDFFile {
 	public static final int ALLPAGES	= -1;
@@ -81,6 +90,24 @@ public class GRPDFFile {
 	}
 	public void appendPDF(String namePDF) throws GRAttachmentException {
 		pdfReader.add(new GRPDFReader(namePDF));
+	}
+	
+	public void appendJPG(String nameJPG, double left, double top, double width, double height) throws GRException {
+		String nameFileTemp = this.createGRX(nameJPG, left, top, width, height);
+	
+		pdfReader.add(new GRPDFReader(nameFileTemp));
+		
+		// Dopo aver aggiunto il pdf temporaneo in memoria, lo cancella
+		File k = new File(nameFileTemp);
+		k.delete();
+	}
+	public void appendJPG(String nameJPG) throws GRException {
+		String nameFileTemp = this.createGRX(nameJPG);
+		
+		pdfReader.add(new GRPDFReader(nameFileTemp));
+		
+		File k = new File(nameFileTemp);
+		k.delete();
 	}
 	public int getNumFiles() {
 		return pdfReader.size();
@@ -116,6 +143,7 @@ public class GRPDFFile {
 			// 2. Le /Resources contenute nella pagina
 			// 3. Il /Contents
 			for(int i = 0;i < pdfReader.size();i++) {
+				
 				GRPDFReader attach = pdfReader.get(i);
 				attach.newDocument(xref);
 				totPages = totPages + attach.getNumPages();
@@ -196,15 +224,109 @@ public class GRPDFFile {
 		return totPages;
 	}
 	
+	// Test - Crea un PDF da un'immagine
+	private String createGRX(String pathJPG) throws GRException {
+		return this.createGRX(pathJPG,0.0,0.0,210.0,297.0);
+	}
+	private String createGRX(String pathJPG, double left, double top, double width, double height) throws GRException {
+		RandomAccessFile raf;
+		
+		String nameFileTemp = null;
+		
+		// Recupera le informazioni riguardo l'immagine.
+		// Questo serve anche a sapere se l'immagine che si tenta di allegare esiste oppure no
+		File img = new File(pathJPG);
+		//System.out.println("ABS PAT: "+img.getAbsolutePath());
+		//System.out.println("ABS PAT: "+img.getName());
+		//System.out.println("ABS PAT: "+img.getPath());
+		//System.out.println("ABS PAT: "+img.getParent());
+		
+		if(!img.exists())
+			throw new GRAttachmentFileNotFoundException(img.getName());
+		
+		nameFileTemp = img.getName()+"_"+System.currentTimeMillis();
+		// Crea il GRX che conterrà l'immagine
+		
+		try {
+			raf = new RandomAccessFile(img.getParent()+"//"+nameFileTemp+".grx","rw");
+		
+			raf.writeBytes("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+			raf.writeBytes("<globalreports edit=\"GlobalReports Editor\" version=\"0.7\">\n");
+			raf.writeBytes("<grinfo>\n");
+			raf.writeBytes("<namedocument>"+nameFileTemp+"</namedocument>\n");
+			raf.writeBytes("<pathfont>C:\\Windows\\Fonts\\</pathfont>\n");
+			raf.writeBytes("</grinfo>\n");
+			
+			raf.writeBytes("<page>\n");
+			raf.writeBytes("<typography>MM</typography>\n");
+			raf.writeBytes("<pagewidth>210</pagewidth>\n");
+			raf.writeBytes("<pageheight>297</pageheight>\n");
+			raf.writeBytes("<grbody>\n");
+			
+			raf.writeBytes("<image>\n");
+			raf.writeBytes("<path>"+img.getParent()+"//"+img.getName()+"</path>\n");
+			raf.writeBytes("<left>"+left+"</left>\n");
+			raf.writeBytes("<top>"+top+"</top>\n");
+			raf.writeBytes("<width>"+width+"</width>\n");
+			raf.writeBytes("<height>"+height+"</height>\n");
+			raf.writeBytes("<hposition>absolute</hposition>\n");
+			raf.writeBytes("</image>\n");
+			
+			raf.writeBytes("</grbody>\n");
+			raf.writeBytes("</page>\n");
+			raf.writeBytes("</globalreports>\n");
+			
+			raf.close();
+		} catch (FileNotFoundException e) {
+			throw new GRAttachmentFileNotFoundException(img.getName());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			throw new GRAttachmentIOReadException(img.getName());
+		}
+		
+		// Adesso crea il pdf dal GRX
+		GRPDF pdf = new GRPDF();
+		//pdf.compile(img.getParent()+"//"+nameFileTemp+".grx");
+		pdf.setLayout(img.getParent()+"//"+nameFileTemp+".grx");
+		pdf.writePDF(img.getParent()+"//"+nameFileTemp+".pdf");
+		
+		// Cancella tutti i file temporanei creati
+		File k;
+		k = new File(img.getParent()+"//"+nameFileTemp+".grx");
+		k.delete();
+		k = new File(img.getParent()+"//"+nameFileTemp+".grb");
+		k.delete();
+		return img.getParent()+"//"+nameFileTemp+".pdf";
+	}
 	
+	public void drawGRRectangle(double left, double top, double width, double height, double widthStroke) {
+		GRShape shape = new GRRectangle();
+		
+		shape.setPosition(GRMeasures.fromMillimetersToPostScript(left), GRMeasures.fromMillimetersToPostScript(top));
+		shape.setDimension(GRMeasures.fromMillimetersToPostScript(width), GRMeasures.fromMillimetersToPostScript(height));
+		
+		try {
+			GRPDFPage grpage = pdfReader.get(0).getPage(0);
+			
+		} catch (GRAttachmentPageNotExists e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
 	/**
 	 * Restituisce il numero di pagine di cui è composto il file PDF acquisito
 	 * 
 	 * @return Il numero di pagine totali del PDF letto.
 	 * @throws GRAttachmentException Se la lettura del file presenta dei problemi.
 	 */
-	public int getNumPages() { 
+	public int getNumPages() {
+		if(grfile == null)
+			return 0;
+		
+		
 		return grfile.getNumPages();
+		
 	}
 	
 	/**

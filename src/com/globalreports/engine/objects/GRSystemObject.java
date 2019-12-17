@@ -1,6 +1,6 @@
 /*
  * ==========================================================================
- * class name  : com.globalreports.engine.objects.text.GRParagraph
+ * class name  : com.globalreports.engine.objects.GRSystemObject
  * 
  * Begin       : 
  * Last Update : 
@@ -47,99 +47,81 @@
  * which carries forward this exception.
  * 
  */
-package com.globalreports.engine.objects.variable.text;
+package com.globalreports.engine.objects;
 
-public class GRTextRowParagraph {
-	private String value;
-	private String fontId;
-	private double fontSize;
-	private int fontAscent;
-	private double colorRED;
-	private double colorGREEN;
-	private double colorBLUE;
-	private int blank;
-	private double widthBlank;
-	private double width;
-	private boolean underline;
+import java.util.Vector;
+
+import com.globalreports.engine.structure.grbinary.GRGlobalPDF;
+import com.globalreports.engine.structure.grbinary.GRPage;
+import com.globalreports.engine.structure.grpdf.GRContext;
+
+
+public abstract class GRSystemObject {
+	public static final short HPOSITION_ABSOLUTE		= 1;
+	public static final short HPOSITION_RELATIVE		= 2;
 	
-	private double gapAdjustment;	// E' la quantità di spazio aggiuntivo
-									// che viene inserito in fase di rendering
-									// della stringa per ottenere l'allineamento
-									// specificato
+	public static final short TYPESYSOBJECT_PAGINANDIM		= 1;
 	
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE, String valueUnderline) {
-		this.fontId = fontId;
-		this.fontSize = fontSize;
-		this.fontAscent = fontAscent;
-		this.colorRED = cRED;
-		this.colorGREEN = cGREEN;
-		this.colorBLUE = cBLUE;
+	protected short type;
+	protected String typography;
+	protected short hposition;
+	
+	protected double left;
+	protected double top;
+	
+	protected GRContext grcontext;
+	protected double widthPage;
+	protected double heightPage;
+	
+	public GRSystemObject(short type) {
+		this(type,GRPage.TYPOGRAPHY_POSTSCRIPT);
+	}
+	public GRSystemObject(short type, String typography) {
+		this.type = type;
+		this.typography = typography;
 		
-		blank = 0;
-		width = 0.0;
-		
-		if(valueUnderline.equals("underline"))
-			underline = true;
-		else
-			underline = false;
+		this.hposition = HPOSITION_ABSOLUTE;
 	}
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE) {
-		this(fontId, fontSize, fontAscent, cRED, cGREEN, cBLUE, "none");
+	public void setGRContext(GRContext grcontext) {
+		this.grcontext = grcontext;
 	}
-	public void setValue(String value) {
-		this.value = value;
+	public void setPageDimension(double width, double height) {
+		this.widthPage = width;
+		this.heightPage = height;
 	}
-	public String getValue() {
-		return value;
+	public void setLeft(double value) {
+		left = value;
 	}
-	public void setWidth(double width) {
-		this.width = width;
+	public double getLeft() {
+		return left;
 	}
-	public double getWidth() {
-		return width;
+	public void setTop(double value) {
+		top = value;
 	}
-	public void setWidthBlank(double value) {
-		this.widthBlank = value;
+	public double getTop() {
+		return top;
 	}
-	public double getWidthBlank() {
-		return widthBlank;
-	}
-	public void addBlank() {
-		blank++;
-	}
-	public int getBlank() {
-		return blank;
+	public void setPosition(double left, double top) {
+		this.left = left;
+		this.top = top;
 	}
 	
-	public String getFontId() {
-		return fontId;
+	public short getType() {
+		return type;
 	}
-	public double getFontSize() {
-		return fontSize;
+	public void setHPosition(String value) {
+		if(value.equals("relative")) {
+			this.setHPosition(HPOSITION_RELATIVE);
+		} else {
+			// In tutti gli altri casi imposta la posizione assoluta
+			this.setHPosition(HPOSITION_ABSOLUTE);
+		}
 	}
-	public int getFontAscent() {
-		return fontAscent;
+	public void setHPosition(short value) {
+		hposition = value;
 	}
-	public double getRED() {
-		return colorRED;
+	public short getHPosition() {
+		return hposition;
 	}
-	public double getGREEN() {
-		return colorGREEN;
-	}
-	public double getBLUE() {
-		return colorBLUE;
-	}
-	public boolean getUnderline() {
-		return underline;
-	}
-	public void setGapAdjustment(double value) {
-		gapAdjustment = value;
-	}
-	public void addGapAdjustment(double value) {
-		gapAdjustment += value;
-	}
-	public double getGapAdjustment() {
-		return gapAdjustment;
-	}
+	public abstract String draw(GRGlobalPDF grglobal);
 }
-

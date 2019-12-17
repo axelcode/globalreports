@@ -146,10 +146,14 @@ public class GRBarcode39 extends GRBarcode {
 		
 		double widthChar = width / valueBarcode.length();
 		double singleToken = widthChar / 30;
+		
 		double widthTHIN = THIN * singleToken;
 		double widthTHICK = THICK * singleToken;
 		
 		double widthRect = 0;
+		
+		if(grdata != null) 
+			valueBarcode = grdata.addVariables(valueBarcode);
 		
 		for(int i = 0;i < valueBarcode.length();i++) {
 			String code = encoding.get(valueBarcode.charAt(i));

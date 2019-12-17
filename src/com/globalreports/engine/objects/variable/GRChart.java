@@ -56,6 +56,7 @@ import com.globalreports.engine.err.GRValidateException;
 import com.globalreports.engine.objects.GRObject;
 import com.globalreports.engine.objects.variable.chart.GRChartVectorial;
 import com.globalreports.engine.objects.variable.chart.GRChartVoice;
+import com.globalreports.engine.objects.variable.chart.model.GRChartBar;
 import com.globalreports.engine.objects.variable.chart.model.GRChartPie;
 import com.globalreports.engine.structure.GRColor;
 import com.globalreports.engine.structure.GRMeasures;
@@ -67,7 +68,13 @@ public abstract class GRChart extends GRVariableObject {
 	public static final int	LEGEND_EMPTY		= 0;
 	public static final int LEGEND_VISIBLE		= 1;
 	
+	public static final short VALUELABEL_NOTHING	= 0;
+	public static final short VALUELABEL_TOP		= 1;
+	public static final short VALUELABEL_INSIDE		= 2;
+	public static final short VALUELABEL_BOTTOM		= 3;
+	
 	public static final short TYPECHART_PIE		= 1;
+	public static final short TYPECHART_BAR		= 2;
 	
 	protected double widthStroke;
 	protected double left;
@@ -79,22 +86,45 @@ public abstract class GRChart extends GRVariableObject {
 	protected int gap;
 	protected String id;
 	
+	protected double borderStroke;	// Perimetro di definizione del grafico
+	protected short valueLabel;		// Definisce come visualizzare i singoli valori
+									// all'interno del grafico
+	protected short labelx;			// true/false: per visualizzare le etichette
+									// sull'asse delle ascisse
+	protected short labely;			// true/false: per visualizzare le etichette
+									// sull'asse delle ordinate
+	protected double barRatio;		// Larghezza in percentuale della barra rispetto
+									// allo spazio a lei designato.
+	protected String name;			// Nome associato al blocco dati nell'xml
+	
 	protected Vector<GRChartVoice> grvoice;
 	
 	protected GRChart(short view) {
 		super(GRObject.TYPEOBJ_CHART);
 		
 		this.view = view;
+		
+		this.borderStroke = 0.0;
+		this.valueLabel = VALUELABEL_NOTHING;
+		
+		this.labelx = 0;	// hide
+		this.labely = 0;	// hide
+		
+		this.barRatio = 0.4;
+		this.name = "";
 	}
 	
 	public static GRChart createChart(short typeChart, short view) {
 		GRChart grchart = null;
 		
 		switch(typeChart) {
-		case TYPECHART_PIE:
-			grchart = new GRChartPie(view);
-			break;
+			case TYPECHART_PIE:
+				grchart = new GRChartPie(view);
+				break;
 			
+			case TYPECHART_BAR:
+				grchart = new GRChartBar(view);
+				break;
 		}
 		
 		return grchart;
@@ -102,6 +132,8 @@ public abstract class GRChart extends GRVariableObject {
 	public static short typeChartFromStringToShort(String value) {
 		if(value.equals("pie")) 
 			return TYPECHART_PIE;
+		else if(value.equals("bar"))
+			return TYPECHART_BAR;
 		
 		return -1;
 	}
@@ -143,6 +175,7 @@ public abstract class GRChart extends GRVariableObject {
 	}
 	public void setNameXml(String value) {
 		this.id = value;
+		this.name = value;
 	}
 	public void setGap(int value) {
 		this.gap = value;
@@ -153,14 +186,87 @@ public abstract class GRChart extends GRVariableObject {
 	public double getWidthStroke() {
 		return widthStroke;
 	}
+	public void setBorderStroke(double value) {
+		this.borderStroke = value;
+	}
+	public double getBorderStroke() {
+		return borderStroke;
+	}
+	public void setValueLabel(String value) {
+		if(value.equals("nothing"))
+			this.valueLabel = VALUELABEL_NOTHING;
+		else if(value.equals("top"))
+			this.valueLabel = VALUELABEL_TOP;
+		else if(value.equals("inside"))
+			this.valueLabel = VALUELABEL_INSIDE;
+		else if(value.equals("bottom"))
+			this.valueLabel = VALUELABEL_BOTTOM;
+	}
+	public void setValueLabel(short value) {
+		this.valueLabel = value;
+	}
+	public short getValueLabel() {
+		return valueLabel;
+	}
+	public void setLabelX(short value) {
+		this.labelx = value;
+	}
+	public void setLabelX(String value) {
+		if(value.equals("visible"))
+			this.labelx = 1;
+		else if(value.equals("hide"))
+			this.labelx = 0;
+	}
+	public short getLabelX() {
+		return labelx;
+	}
+	public void setLabelY(short value) {
+		this.labely = value;
+	}
+	public void setLabelY(String value) {
+		if(value.equals("visible"))
+			this.labely = 1;
+		else if(value.equals("hide"))
+			this.labely = 0;
+	}
+	public short getLabelY() {
+		return labely;
+	}
 	public int getGap() {
 		return gap;
+	}
+	public void setBarRatio(String value) {
+		
+		if(value.endsWith("%")) {
+			barRatio = Double.parseDouble(value.substring(0,value.length()-1));
+			barRatio = barRatio / 100;
+		} else {
+			barRatio = Double.parseDouble(value);
+		}
+	}
+	public void setBarRatio(double value) {
+		this.barRatio = value;
+	}
+	public double getBarRatio() {
+		return barRatio;
+	}
+	public void setName(String value) {
+		this.name = value;
+	}
+	public String getName() {
+		return name;
 	}
 	public void addVoice(String label, double value, double colorFillRED, double colorFillGREEN, double colorFillBLUE) {
 		if(grvoice == null)
 			grvoice = new Vector<GRChartVoice>();
 		
 		grvoice.add(new GRChartVoice(label, value, colorFillRED, colorFillGREEN, colorFillBLUE));
+	}
+	public void addVoice(String label, double value, double colorStrokeRED, double colorStrokeGREEN, double colorStrokeBLUE, double colorFillRED, double colorFillGREEN, double colorFillBLUE) {
+		if(grvoice == null)
+			grvoice = new Vector<GRChartVoice>();
+		
+		grvoice.add(new GRChartVoice(label, value, colorStrokeRED, colorStrokeGREEN, colorStrokeBLUE, colorFillRED, colorFillGREEN, colorFillBLUE));
 	}
 	public Vector<GRChartVoice> getVoice() {
 		return grvoice;

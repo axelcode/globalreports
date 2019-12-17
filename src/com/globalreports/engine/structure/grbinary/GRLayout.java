@@ -60,6 +60,8 @@ import com.globalreports.engine.objects.GRLine;
 import com.globalreports.engine.objects.GRObject;
 import com.globalreports.engine.objects.GRRectangle;
 import com.globalreports.engine.objects.GRShape;
+import com.globalreports.engine.objects.GRSystemObject;
+import com.globalreports.engine.objects.sys.GRSysPaginaNdiM;
 import com.globalreports.engine.objects.variable.GRBarcode;
 import com.globalreports.engine.objects.variable.GRChart;
 import com.globalreports.engine.objects.variable.GRMapCondition;
@@ -107,11 +109,20 @@ public class GRLayout {
 	}
 	
 	private void read() throws GRLayoutException {
-		RandomAccessFile rLayout;
+		RandomAccessFile rLayout = null;
 		GRAddressTable addressTable;
-		byte[] grHeader = new byte[64];
+		
+		/* E' stato modificato il modo di leggere i 64 bytes dell'header */
+		byte[] grMagicNumber = new byte[4];
+		int versionMajor;
+		int versionMinor;
+		int versionMinus;
+		byte[] grDescription = new byte[32];
+		byte[] grNotUsed = new byte[16];
+		
 		long fPointerAddressTable;
 		int numberPages;
+		int numberTemplates;
 		int totaleImage;
 		int totaleFont;
 		int totaleObj;
@@ -137,9 +148,15 @@ public class GRLayout {
 			
 			// HEADER
 			// GR
-			rLayout.read(grHeader);
-			//System.out.println(new String(grHeader));
+			rLayout.read(grMagicNumber);
 			
+			versionMajor = rLayout.readInt();
+			versionMinor = rLayout.readInt();
+			versionMinus = rLayout.readInt();
+			
+			rLayout.read(grDescription);
+			rLayout.read(grNotUsed);
+						
 			// ADDRESS TABLE
 			fPointerAddressTable = rLayout.readLong();
 			
@@ -149,14 +166,19 @@ public class GRLayout {
 			addressTable.setAddressImage(rLayout.readLong());
 			addressTable.setAddressFont(rLayout.readLong());
 			
+			/* Acquisizione delle pagine */
 			numberPages = rLayout.readInt();
-		
 			// DEPRECATED: Il numero di pagine viene aggiornato ogni volta
 			// che viene chiamata GRDocument.addPage();
 			//grdocument.setNumberPages(numberPages);
-			
 			for(int i = 0;i < numberPages;i++) {
 				addressTable.addAddressPage(rLayout.readLong());
+			}
+			
+			/* Acquisizione dei template */
+			numberTemplates = rLayout.readInt();
+			for(int i = 0;i < numberTemplates;i++) {
+				addressTable.addAddressTemplate(rLayout.readLong());
 			}
 			
 			// Comincia ad acquisire le risorse
@@ -235,7 +257,7 @@ public class GRLayout {
 				grdocument.setPageHeader(rLayout.readDouble());
 				// FOOTER
 				grdocument.setPageFooter(rLayout.readDouble());
-			
+				
 				// Cicla per tutti gli oggetti contenuti nell'header della pagina
 				totaleObj = rLayout.readInt();
 				for(int t = 0;t < totaleObj;t++) {
@@ -315,12 +337,72 @@ public class GRLayout {
 					
 				}
 				
+				// Cicla per tutti gli oggetti di sistema
+				short extraobj = rLayout.readShort();
+				for(int t = 0;t < extraobj;t++) {
+					grdocument.addPageSysObj(this.getGRSystem(rLayout),GRPage.SECTION_PAGE_BODY);
+				}
+				
+				// Associa un eventuale template alla pagina
+				int totaleTemplate = rLayout.readInt();
+				
+				for(int t = 0;t < totaleTemplate;t++) {
+					
+					int lengthTemplate = rLayout.readInt();
+					byte[] bufferTemplate = new byte[lengthTemplate];
+					rLayout.read(bufferTemplate,0,lengthTemplate);
+					
+					grdocument.addPageTemplate(new String(bufferTemplate));
+				}
+				
+				
 			}
 			
+			// Acquisisce eventuali template
+			for(int i = 0;i < numberTemplates;i++) {
+				rLayout.seek(addressTable.getAddressTemplate(i));
+				
+				grdocument.addTemplate();
+				
+				int lengthName = rLayout.readInt();
+				byte[] templateName = new byte[lengthName];
+				rLayout.read(templateName,0,lengthName);
+				grdocument.setTemplateName(new String(templateName));
+				
+				grdocument.setTemplatePosition(rLayout.readShort());
+				
+				totaleObj = rLayout.readInt();
+				for(int t = 0;t < totaleObj;t++) {
+					short type = rLayout.readShort();
+					
+					
+					if(type == GRObject.TYPEOBJ_TEXT) {
+						grdocument.addTemplateObj(this.getGRText(rLayout));
+						
+					} else if(type == GRObject.TYPEOBJ_IMAGE) {
+						grdocument.addTemplateObj(this.getGRImage(rLayout));
+						
+					} else if(type == GRObject.TYPEOBJ_SHAPE) {
+						grdocument.addTemplateObj(this.getGRShape(rLayout));
+						
+					}
+				}
+			}
+			rLayout.close();
 		} catch(FileNotFoundException fnfe) {
+			try {
+				rLayout.close();
+			} catch(IOException e) {
+				throw new GRLayoutIOReadException(pathLayout);
+			}
 			throw new GRLayoutFileNotFoundException(pathLayout);
 			
 		} catch(IOException ioe) {
+			try {
+				rLayout.close();
+			} catch(IOException e) {
+				// Non fa nulla, tanto l'istruzione successiva sarà una IOException
+			}
 			throw new GRLayoutIOReadException(pathLayout);
 			
 		} 
@@ -463,7 +545,9 @@ public class GRLayout {
 			short type = rLayout.readShort();
 			
 			if(type == GRObject.TYPEOBJ_TEXT) {
-				refCell.addObj(this.getGRText(rLayout));			
+				refCell.addObj(this.getGRText(rLayout));
+			} else if(type == GRObject.TYPEOBJ_TEXTCONDITION) {
+				refCell.addObj(this.getGRTextCondition(rLayout));
 			} else if(type == GRObject.TYPEOBJ_SHAPE) {
 				refCell.addObj(this.getGRShape(rLayout));
 			} else if(type == GRObject.TYPEOBJ_IMAGE) {
@@ -648,6 +732,34 @@ public class GRLayout {
 		
 		return shape;
 	}
+	private GRSystemObject  getGRSystem(RandomAccessFile rLayout) throws IOException {
+		GRSystemObject sysobj = null;
+		short type = rLayout.readShort();
+		double left = rLayout.readDouble();
+		double top = rLayout.readDouble();
+		short hpos = rLayout.readShort();
+		
+		if(type == GRSystemObject.TYPESYSOBJECT_PAGINANDIM) {
+			short language = rLayout.readShort();
+			
+			int lengthField = rLayout.readInt();	// Len della stringa fontStyle
+			byte[] bufferText = new byte[lengthField];
+			rLayout.read(bufferText,0,lengthField);
+			
+			GRSysPaginaNdiM grpaginandim = new GRSysPaginaNdiM(new String(bufferText,0,lengthField));
+			
+			grpaginandim.setLeft(left);
+			grpaginandim.setTop(top);
+			grpaginandim.setHPosition(hpos);
+			
+			grpaginandim.setLanguage(language);
+			sysobj = grpaginandim;
+		}
+		
+		long addressExtend = rLayout.readLong();
+		
+		return sysobj;
+	}
 	private GRBarcode getGRBarcode(RandomAccessFile rLayout) throws IOException {
 		GRBarcode barcode = null;
 		short typeBarcode = rLayout.readShort();
@@ -688,6 +800,12 @@ public class GRLayout {
 		int gap = rLayout.readInt();
 		short legend = rLayout.readShort();
 		
+		double borderStroke;
+		short valueLabel;
+		short labelx;
+		short labely;
+		double barratio;
+		
 		// Campi opzionali
 		short position = 0;
 		int lengthTitle = 0;
@@ -719,6 +837,7 @@ public class GRLayout {
 		if(lengthNameXml > 0) {
 			bufferNameXml = new byte[lengthNameXml];
 			rLayout.read(bufferNameXml,0,lengthNameXml);
+			
 		}
 		
 		/* Prima di leggere eventuali dati statici provvede a generare l'oggetto.
@@ -753,15 +872,45 @@ public class GRLayout {
 				rLayout.read(bufferLabel,0,lengthLabel);
 				
 				double value = rLayout.readDouble();
+				
+				double csRED = rLayout.readDouble();
+				double csGREEN = rLayout.readDouble();
+				double csBLUE = rLayout.readDouble();
+				
 				double cRED = rLayout.readDouble();
 				double cGREEN = rLayout.readDouble();
 				double cBLUE = rLayout.readDouble();
 				
-				chart.addVoice(new String(bufferLabel,0,lengthLabel), value, cRED, cGREEN, cBLUE);
+				chart.addVoice(new String(bufferLabel,0,lengthLabel), value, csRED, csGREEN, csBLUE, cRED, cGREEN, cBLUE);
+				//chart.addVoice(new String(bufferLabel,0,lengthLabel), value, cRED, cGREEN, cBLUE);
 			}	
 		}
 		
 		long addressExtend = rLayout.readLong();
+		
+		/*
+		 * Per compatibilità con le versioni precedenti, verifica il valore
+		 * di questa proprietà.
+		 * Se zero ritorna l'oggetto, se diverso da zero legge la proprietà 
+		 * corrispondente
+		 * 
+		 * Dalla versione 1.32 sono state aggiunte nuove proprietà
+		 */
+		if(addressExtend > 0) {
+			borderStroke = rLayout.readDouble();
+			valueLabel = rLayout.readShort();
+			labelx = rLayout.readShort();
+			labely = rLayout.readShort();
+			barratio = rLayout.readDouble();
+			
+			chart.setBorderStroke(borderStroke);
+			chart.setValueLabel(valueLabel);
+			chart.setLabelX(labelx);
+			chart.setLabelY(labely);
+			chart.setBarRatio(barratio);
+		}
+		
+		addressExtend = rLayout.readLong();
 		
 		return chart;
 	}
@@ -805,9 +954,19 @@ public class GRLayout {
 					grgroup.addElement(getGRText(rLayout));
 					
 					break;
+				
+				case GRObject.TYPEOBJ_TEXTCONDITION:
+					grgroup.addElement(getGRTextCondition(rLayout));
+					
+					break;
 					
 				case GRObject.TYPEOBJ_LIST:
 					grgroup.addElement(getGRList(rLayout));
+					
+					break;
+					
+				case GRObject.TYPEOBJ_IMAGE:
+					grgroup.addElement(getGRImage(rLayout));
 					
 					break;
 			}

@@ -117,6 +117,7 @@ public class GRPDFReader {
 		}
 	}
 	private void readStructure() throws GRAttachmentException {
+		
 		readXref();
 		
 		refobj = new GRPDFObject[xreftable.length()];
@@ -124,12 +125,15 @@ public class GRPDFReader {
 		// Legge tutti gli oggetti presenti nel PDF.
 		long startTime = System.currentTimeMillis();
 		for(int i = 1;i < xreftable.length();i++) {
+			
 			GRCrossElement element = xreftable.getElement(i);
 			
 			//System.out.println("Inserisco elementi: "+i+" - "+element.getType());
 			
 			if(element != null) {
+				
 				if(element.getType() == GRCrossElement.CROSSTYPE_OBJECT) {
+					
 					GRPDFObject obj = GRPDFContentLibrary.readObject(pdf,i,xreftable);
 					
 					// Ogni oggetto lo aggiunge alla struttura
@@ -406,10 +410,13 @@ public class GRPDFReader {
 		
 		return indexPages;
 	}
+	private void readArrayReferences(String key) {
+		
+	}
 	private void readKids(int index) throws GRAttachmentException {
-		String REG_DICT_KIDS		= "(\\/Kids[ ]{0,}(\\[[ ]{0,}([0-9]+ 0 R[ ]{0,1}){1,}\\]))";
+		String REG_DICT_KIDS		= "(\\/Kids[ ]{0,}(\\[[ ]{0,}([0-9]+ 0 R[ ]{0,}){1,}\\]))";
 		String REG_KIDS = "(([0-9]+) 0 R)";
-				
+
 		GRPDFObject obj = refobj[index];
 		
 		if(isPage(obj)) {
@@ -677,6 +684,7 @@ public class GRPDFReader {
 		}
 	}
 	public String getText(int index) {
+		
 		/* Visualizzare lo stream decodificato */
 		GRPDFObject ob = refobj[index];
 		
@@ -691,6 +699,7 @@ public class GRPDFReader {
 		return null;
 	}
 	public void newDocument(GRXrefTable xref) {
+		
 		this.xrefnew = xref;
 		int totObj = 0;
 		kids = "";
@@ -710,9 +719,20 @@ public class GRPDFReader {
 	}
 	
 	public int writePage(RandomAccessFile raf, int numPage, int startIndex) throws IOException, GRAttachmentException {
+		StringBuffer content = new StringBuffer();
+		
+		content.append("q\n");
+		content.append("0.5 w\n");
+		content.append("1.0 1.0 1.0 RG\n");
+		
+		content.append("28.34 28.34 141.73 56.68 re\n");
+		content.append("S\n");
+		
+		content.append("Q\n");
 		return this.writePage(raf, numPage, startIndex, null);
 	}
 	public int writePage(RandomAccessFile raf, int numPage, int startIndex, String content) throws IOException, GRAttachmentException {
+		
 		String REG_REF = "(([0-9a-zA-Z]+) ([0-9]+) 0 R)|(\\[[ ]{0,}([0-9]+) 0 R)";
 		String WORD_PARENT = "(\\/Parent [0-9]+ 0 R)";
 		String WORD_CONTENT = "(\\/Contents ([0-9]+) 0 R)|(\\/Contents[ ]{0,}\\[[ 0-9R]+\\])";
@@ -748,6 +768,7 @@ public class GRPDFReader {
 			writeObject(raf, indexContents.get(i));
 		
 		if(content != null) {
+			
 			// Aggiunge il contenuto 
 			//String buffContent = content.getContentStream();
 			String buffContent = "";
@@ -778,6 +799,7 @@ public class GRPDFReader {
 		
 		// Se presente un contenuto aggiuntivo aggiunge la risorsa
 		if(content != null) {
+			
 			pattern = Pattern.compile(WORD_FONT);
 			matcher = pattern.matcher(valuePage);
 					
@@ -789,6 +811,7 @@ public class GRPDFReader {
 		kids = kids + this.startIndex + " 0 R ";
 		
 		startObject(raf, page.getIndex());
+		
 		raf.writeBytes(valuePage+"\n");
 		raf.writeBytes("endobj\n");
 		
@@ -902,6 +925,11 @@ public class GRPDFReader {
 		
 		raf.writeBytes(getNewReference(obj.getDictionary())+"\n");
 		if(obj.hasStream()) {
+			//byte[] buff = GRFlateDecode.decode(obj.getStream(), true);
+			//System.out.println("BUFF: "+new String(buff));
+			//byte[] buff2 = GRFlateDecode.encode(buff);
+			//raf.write(buff2);
+						
 			raf.write(obj.getStream());
 			raf.writeBytes("\n");
 			raf.writeBytes("endstream\n");
@@ -920,7 +948,7 @@ public class GRPDFReader {
 		
 		// Scrive l'apertura
 		raf.writeBytes(startIndex+" 0 obj\n");
-				
+		
 		startIndex++;
 		totObjectForPage++;
 	}

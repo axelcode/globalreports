@@ -51,11 +51,15 @@ package com.globalreports.engine.structure.grpdf;
 
 import java.util.Vector;
 
+import com.globalreports.engine.objects.GRSystemObject;
+
 public class GRPageStream {
 	private double width;
 	private double height;
 	private int pagine;
 	private Vector<String> contentStream;
+	
+	private Vector<GRSystemObject> grsysObj;
 	
 	public GRPageStream(double width, double height) {
 		this.width = width;
@@ -63,6 +67,7 @@ public class GRPageStream {
 	
 		pagine = 0;
 		contentStream = new Vector<String>();
+		grsysObj = null;
 	}
 	
 	public double getPageWidth() {
@@ -81,5 +86,20 @@ public class GRPageStream {
 	}
 	public int getPage() {
 		return contentStream.size();
+	}
+	
+	public void setGRSystemObject(Vector<GRSystemObject> grsys) {
+		grsysObj = grsys;
+	}
+	public void setGRSystemObject(Vector<GRSystemObject> grsys, double widthPage, double heightPage) {
+		if(grsys != null) {
+			for(int i = 0;i < grsys.size();i++)
+				grsys.get(i).setPageDimension(widthPage, heightPage);
+		}
+		
+		grsysObj = grsys;
+	}
+	public Vector<GRSystemObject> getGRSystemObjec() {
+		return grsysObj;
 	}
 }

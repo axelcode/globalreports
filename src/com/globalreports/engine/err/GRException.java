@@ -86,6 +86,10 @@ public class GRException extends Exception {
 	public static final int GRCODERROR_BARCODE_VALUEINCORRECT			= 10501;
 	
 	public static final int GRCODERROR_COMPILE_NAMEDOCUMENTMISSING		= 10601;
+	public static final int GRCODERROR_COMPILE_TYPENOTDEFINED			= 10602;
+	public static final int GRCODERROR_COMPILE_IO						= 10603;
+	public static final int GRCODERROR_COMPILE_XMLREAD					= 10604;
+	public static final int GRCODERROR_COMPILE_WRITEGRB					= 10605;
 	
 	private int typeError;
 	private int codError;

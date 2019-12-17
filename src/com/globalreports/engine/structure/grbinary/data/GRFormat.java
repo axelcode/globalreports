@@ -70,7 +70,7 @@ public abstract class GRFormat {
 		String typeFunction;
 		String valueReturn;
 
-		if(valore == null)
+		if(valore == null || valore.length() == 0)
 			return valore;
 		
 		valueReturn = valore;

@@ -1,6 +1,6 @@
 /*
  * ==========================================================================
- * class name  : com.globalreports.engine.objects.text.GRParagraph
+ * class name  : com.globalreports.engine.objects.text.GRTokenText
  * 
  * Begin       : 
  * Last Update : 
@@ -49,66 +49,37 @@
  */
 package com.globalreports.engine.objects.variable.text;
 
-public class GRTextRowParagraph {
-	private String value;
+public class GRTokenText {
 	private String fontId;
 	private double fontSize;
-	private int fontAscent;
-	private double colorRED;
-	private double colorGREEN;
-	private double colorBLUE;
-	private int blank;
-	private double widthBlank;
-	private double width;
-	private boolean underline;
+	private double cRED;
+	private double cGREEN;
+	private double cBLUE;
+	private String fontColor;
+	private String fontUnderline;
+	private String value;
 	
-	private double gapAdjustment;	// E' la quantità di spazio aggiuntivo
-									// che viene inserito in fase di rendering
-									// della stringa per ottenere l'allineamento
-									// specificato
-	
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE, String valueUnderline) {
-		this.fontId = fontId;
-		this.fontSize = fontSize;
-		this.fontAscent = fontAscent;
-		this.colorRED = cRED;
-		this.colorGREEN = cGREEN;
-		this.colorBLUE = cBLUE;
+	public GRTokenText(String key, String value) {
 		
-		blank = 0;
-		width = 0.0;
+		String[] styleString = key.split(":");
 		
-		if(valueUnderline.equals("underline"))
-			underline = true;
-		else
-			underline = false;
-	}
-	public GRTextRowParagraph(String fontId, double fontSize, int fontAscent, double cRED, double cGREEN, double cBLUE) {
-		this(fontId, fontSize, fontAscent, cRED, cGREEN, cBLUE, "none");
-	}
-	public void setValue(String value) {
+		this.fontId = styleString[0];
+		this.fontSize = Double.parseDouble(styleString[1]);
+		
+		// Estrae i valori relativi al codice colore
+		String[] colorString = styleString[2].split(",");
+		cRED = Double.parseDouble(colorString[0]);
+		cGREEN = Double.parseDouble(colorString[1]);
+		cBLUE = Double.parseDouble(colorString[2]);
+		
+		// Campi opzionali
+		if(styleString.length == 4) {
+			fontUnderline = styleString[3];
+		} else {
+			fontUnderline = "none";
+		}
+		
 		this.value = value;
-	}
-	public String getValue() {
-		return value;
-	}
-	public void setWidth(double width) {
-		this.width = width;
-	}
-	public double getWidth() {
-		return width;
-	}
-	public void setWidthBlank(double value) {
-		this.widthBlank = value;
-	}
-	public double getWidthBlank() {
-		return widthBlank;
-	}
-	public void addBlank() {
-		blank++;
-	}
-	public int getBlank() {
-		return blank;
 	}
 	
 	public String getFontId() {
@@ -117,29 +88,19 @@ public class GRTextRowParagraph {
 	public double getFontSize() {
 		return fontSize;
 	}
-	public int getFontAscent() {
-		return fontAscent;
+	public double getColorRED() {
+		return cRED;
 	}
-	public double getRED() {
-		return colorRED;
+	public double getColorGREEN() {
+		return cGREEN;
 	}
-	public double getGREEN() {
-		return colorGREEN;
+	public double getColorBLUE() {
+		return cBLUE;
 	}
-	public double getBLUE() {
-		return colorBLUE;
+	public String getFontUnderline() {
+		return fontUnderline;
 	}
-	public boolean getUnderline() {
-		return underline;
-	}
-	public void setGapAdjustment(double value) {
-		gapAdjustment = value;
-	}
-	public void addGapAdjustment(double value) {
-		gapAdjustment += value;
-	}
-	public double getGapAdjustment() {
-		return gapAdjustment;
+	public String getValue() {
+		return value;
 	}
 }
-

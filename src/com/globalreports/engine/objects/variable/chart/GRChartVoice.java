@@ -58,15 +58,37 @@ public class GRChartVoice {
 	private GRColor colorStroke;
 	private GRColor colorFill;
 	
-	public GRChartVoice(String label, double value, double colorFillRED, double colorFillGREEN, double colorFillBLUE) {
+	public GRChartVoice(String label, double value) {
 		this.label = label;
 		this.value = value;
 		
 		colorStroke = new GRColor(0.0,0.0,0.0);
+		colorFill = new GRColor(0.0,0.0,0.0);
+		
+	}
+	public GRChartVoice(String label, double value, String colorStroke, String colorFill) {
+		String[] cs = colorStroke.split(" ");
+		String[] cf = colorFill.split(" ");
+		
+		this.label = label;
+		this.value = value;
+		
+		this.colorStroke = new GRColor(Double.parseDouble(cs[0]) / 255, Double.parseDouble(cs[1]) / 255, Double.parseDouble(cs[2]) / 255);
+		this.colorFill = new GRColor(Double.parseDouble(cf[0]) / 255, Double.parseDouble(cf[1]) / 255, Double.parseDouble(cf[2]) / 255);
+		
+	}
+	public GRChartVoice(String label, double value, double colorFillRED, double colorFillGREEN, double colorFillBLUE) {
+		this(label,value,0.0,0.0,0.0,colorFillRED,colorFillGREEN,colorFillBLUE);
+		
+	}
+	public GRChartVoice(String label, double value, double colorStrokeRED, double colorStrokeGREEN, double colorStrokeBLUE, double colorFillRED, double colorFillGREEN, double colorFillBLUE) {
+		this.label = label;
+		this.value = value;
+		
+		colorStroke = new GRColor(colorStrokeRED, colorStrokeGREEN, colorStrokeBLUE);
 		colorFill = new GRColor(colorFillRED, colorFillGREEN, colorFillBLUE);
 		
 	}
-	
 	public String getLabel() {
 		return label;
 	}
@@ -76,8 +98,23 @@ public class GRChartVoice {
 	public GRColor getColorStroke() {
 		return colorStroke;
 	}
+	public String getColorStrokeString() {
+		return colorStroke.getRed() + " " + colorStroke.getGreen() + " " + colorStroke.getBlue();
+	}
 	public GRColor getColorFill() {
 		return colorFill;
+	}
+	public String getColorFillString() {
+		return colorFill.getRed() + " " + colorFill.getGreen() + " " + colorFill.getBlue();
+	}
+	public double getColorStrokeRED() {
+		return colorStroke.getRed();
+	}
+	public double getColorStrokeGREEN() {
+		return colorStroke.getGreen();
+	}
+	public double getColorStrokeBLUE() {
+		return colorStroke.getBlue();
 	}
 	public double getColorFillRED() {
 		return colorFill.getRed();

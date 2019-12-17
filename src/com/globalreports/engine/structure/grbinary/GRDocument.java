@@ -58,19 +58,23 @@ import com.globalreports.engine.err.*;
 import com.globalreports.engine.structure.grbinary.GRFont;
 import com.globalreports.engine.structure.grbinary.GRImageProperty;
 import com.globalreports.engine.objects.GRObject;
+import com.globalreports.engine.objects.GRSystemObject;
 import com.globalreports.engine.objects.variable.GRText;
 import com.globalreports.engine.structure.grbinary.GRPage;
 
 public class GRDocument {
+	private Vector<GRTemplate> grtemplate;
 	private Vector<GRPage> grpage;
 	private Vector<GRImageProperty> grimageproperty;
 	private Vector<GRFont> grfont;
 	
 	/* Riferimenti attuali */
+	GRTemplate refTemplate;
 	GRPage refPage;
 	GRImageProperty refImageProperty;
 	GRFont refFont;
 	
+	private int numberTemplates;
 	private int numberPages;
 	
 	public GRDocument() {
@@ -78,14 +82,79 @@ public class GRDocument {
 	}
 	
 	private void init() {
+		grtemplate = new Vector<GRTemplate>();
 		grpage = new Vector<GRPage>();
 		grimageproperty = new Vector<GRImageProperty>();
 		grfont = new Vector<GRFont>();
 		
+		refTemplate = null;
 		refPage = null;
 		refImageProperty = null;
 		refFont = null;
 		
+	}
+	
+	// TEMPLATE
+	public void addTemplate() {
+		refTemplate = new GRTemplate(this);
+		grtemplate.add(refTemplate);
+		
+		numberTemplates++;
+	}
+	public void addTemplateObj(GRObject grobj) {
+		refTemplate.addObj(grobj);
+	}
+	public void setTemplateName(String value) {
+		refTemplate.setName(value);
+	}
+	public String getTemplateName(int i) {
+		return grtemplate.get(i).getName();
+	}
+	public void setTemplatePosition(String value) {
+		refTemplate.setPosition(value);
+	}
+	public void setTemplatePosition(short value) {
+		refTemplate.setPosition(value);
+	}
+	public short getTemplatePosition(int i) {
+		return grtemplate.get(i).getPosition();
+	}
+	public short getTemplatePosition(String name) {
+		if(name == null)
+			return GRTemplate.POSITION_NOTUSED;
+		
+		for(int i = 0;i < grtemplate.size();i++) {
+			GRTemplate template = grtemplate.get(i);
+			
+			if(template.getName().equals(name)) {
+				return template.getPosition();
+			}
+		}
+
+		return GRTemplate.POSITION_NOTUSED;
+	}
+	public Vector<GRObject> getTemplateObject(int i) {
+		return grtemplate.get(i).getObject();
+	}
+	public String getTemplateStream(String name,GRData grdata) throws GRValidateException, GRBarcodeException {
+		/* Cicla finchè non trova il template.
+		 * Se lo trova restituisce lo stream, altrimenti restituisce stringa vuota 
+		 */
+		if(name == null)
+			return "";
+		
+		for(int i = 0;i < grtemplate.size();i++) {
+			GRTemplate template = grtemplate.get(i);
+			
+			if(template.getName().equals(name)) {
+				return template.getStream(grdata);
+			}
+		}
+
+		return "";
+	}
+	public int getNumberTemplates() {
+		return numberTemplates;
 	}
 	
 	// PAGE
@@ -95,16 +164,25 @@ public class GRDocument {
 		
 		numberPages++;
 	}
-	public Vector<GRObject> getHeaderObject() {
-		return refPage.getHeaderObject();
+	public Vector<GRObject> getHeaderObject(int i) {
+		return grpage.get(i).getHeaderObject();
 	}
-	public Vector<GRObject> getBodyObject() {
-		return refPage.getBodyObject();
+	public Vector<GRObject> getBodyObject(int i) {
+		return grpage.get(i).getBodyObject();
 	}
-	public Vector<GRObject> getFooterObject() {
-		return refPage.getFooterObject();
+	public Vector<GRObject> getFooterObject(int i) {
+		return grpage.get(i).getFooterObject();
+	}
+	public Vector<GRSystemObject> getSystemObject(int i) {
+		return grpage.get(i).getSystemObject();
 	}
 	
+	public void addPageTemplate(String name) {
+		refPage.setTemplate(name);
+	}
+	public Vector<String> getPageTemplate(int i) {
+		return grpage.get(i).getTemplate();
+	}
 	public void setPageWidth(double value) {
 		refPage.setWidth(value);
 	}
@@ -138,7 +216,9 @@ public class GRDocument {
 	public void addPageFooterObj(GRObject grobj) {
 		refPage.addFooterObj(grobj);
 	}
-	
+	public void addPageSysObj(GRSystemObject grobj, int section) {
+		refPage.addSysObj(grobj, section);
+	}
 	public Vector<String> getPageContent(int i, GRData grdata) throws GRValidateException, GRBarcodeException {
 		return grpage.get(i).getContentStream(grdata);
 		//return grpage.get(i).getContentText(grdata);

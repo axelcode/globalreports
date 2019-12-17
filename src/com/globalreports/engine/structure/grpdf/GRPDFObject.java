@@ -158,7 +158,6 @@ public class GRPDFObject {
 		// Decomprime lo stream
 		streamDecompress = GRFlateDecode.decode(stream, true);
 	
-		
 		// Estrae la stringa dei riferimenti
 		internalRef = new String(streamDecompress,0, first);
 		String[] addrInternalRef = internalRef.split(" ");

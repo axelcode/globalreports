@@ -50,7 +50,7 @@
 package com.globalreports.engine.structure.font.encoding;
 
 public class GREncode_ISO8859 {
-	public static String lineASCIIToOct(String value) {
+	public static String lineASCIIToOct(String value, boolean pre) {
 		/*
 		StringBuffer buffer = new StringBuffer();
 		
@@ -61,6 +61,18 @@ public class GREncode_ISO8859 {
 		
 		return buffer.toString();
 		*/
+		
+		// Filtra eventuali codici di return (10 - 0A)
+		if(!pre) {
+			String filterValue = "";
+			for(int i = 0;i < value.length();i++) {
+				if(value.codePointAt(i) != 10) {
+					filterValue = filterValue + value.charAt(i);
+				}
+			}
+			value = filterValue;
+		}
+		
 		StringBuffer buffer = new StringBuffer();
 		int variable = 0;
 		
@@ -87,7 +99,10 @@ public class GREncode_ISO8859 {
 			}
 		}
 		
-		return buffer.toString();
+		return buffer.toString();		
+	}
+	public static String lineASCIIToOct(String value) {
+		return GREncode_ISO8859.lineASCIIToOct(value, false);
 	}
 	
 	private static String fromASCIIToOct(int value) {

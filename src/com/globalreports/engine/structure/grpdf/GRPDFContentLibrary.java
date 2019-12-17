@@ -61,7 +61,7 @@ import java.util.zip.InflaterInputStream;
 import com.globalreports.engine.io.GRPDFInputStream;
 
 public abstract class GRPDFContentLibrary {
-	private static final String REG_STREAM_LENGTH =  "(\\/Length ([0-9]+)([ ]{0,}0 R){0,1})";
+	private static final String REG_STREAM_LENGTH =  "(\\/Length[ ]+([0-9]+)([ ]{0,}0 R){0,1})";
 	
 	public static Vector<String> extractText(String value) {
 		StringBuffer buffer = null;
@@ -180,6 +180,7 @@ public abstract class GRPDFContentLibrary {
 		line = content.toString();
 		line = line.substring(line.indexOf("0 obj")+5);
 		line = line.trim();
+	
 		obj.setDictionary(line);
 		
 		return obj;

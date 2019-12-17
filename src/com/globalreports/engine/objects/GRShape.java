@@ -115,6 +115,16 @@ public abstract class GRShape extends GRObject {
 		return "Q\n";
 	}
 	
+	// Metodi aggiunti per il disegno
+	public void setPosition(double x, double y) {
+		//this.setX1(x);
+		//this.setY1(y);
+	}
+	public void setDimension(double width, double height) {
+		//this.setX2(width);
+		//this.setY2(height);
+	}
+	
 	// Metodi astratti
 	public abstract double getTop();
 	public abstract double getHeight();
